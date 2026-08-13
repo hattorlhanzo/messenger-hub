@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Messenger Hub</title>
+    <link rel="stylesheet" href="./renderer.css" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="mark">M</div>
+        <div>
+          <h1>Messenger Hub</h1>
+          <span id="accountCount">0 sessions</span>
+        </div>
+      </div>
+      <nav class="accountList" id="accountList"></nav>
+      <button class="addButton" id="addButton" type="button">+ Добавить мессенджер</button>
+      <button class="settingsButton" id="settingsButton" type="button">Настройки</button>
+      <div class="accountMenu" id="accountMenu" hidden>
+        <button id="editAccountButton" type="button">Редактировать</button>
+        <button id="deleteAccountButton" type="button">Удалить</button>
+        <button id="clearDeleteAccountButton" type="button">Удалить и очистить вход</button>
+      </div>
+    </aside>
+
+    <header class="toolbar">
+      <div class="navButtons">
+        <button id="backButton" title="Back" type="button">‹</button>
+        <button id="forwardButton" title="Forward" type="button">›</button>
+        <button id="reloadButton" title="Reload" type="button">↻</button>
+      </div>
+      <div class="location">
+        <strong id="pageTitle">Loading</strong>
+        <span id="pageUrl"></span>
+      </div>
+      <button class="ghostButton" id="devtoolsButton" type="button" hidden>DevTools</button>
+    </header>
+
+    <div class="modalBackdrop" id="modalBackdrop" hidden>
+      <form class="modal" id="addForm">
+        <h2>Добавить мессенджер</h2>
+        <label>
+          Мессенджер
+          <select id="platformInput" name="platform">
+            <option value="whatsapp">WhatsApp</option>
+            <option value="telegram">Telegram</option>
+            <option value="instagram">Instagram</option>
+          </select>
+        </label>
+        <label>
+          Название
+          <input id="labelInput" name="label" placeholder="WhatsApp work" />
+        </label>
+        <label id="phoneField">
+          Номер телефона
+          <input id="phoneInput" name="phone" placeholder="+79990000000" />
+        </label>
+        <div class="modalActions">
+          <button class="ghostButton" id="cancelButton" type="button">Отмена</button>
+          <button class="primaryButton" type="submit">Добавить</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="modalBackdrop" id="settingsBackdrop" hidden>
+      <form class="modal managementModal" id="settingsForm">
+        <div class="modalHeader">
+          <div>
+            <h2>Управление</h2>
+            <p>Аккаунты, сессии и поведение приложения</p>
+          </div>
+          <button class="ghostButton" id="settingsCancelButton" type="button">Закрыть</button>
+        </div>
+
+        <div class="managementLayout">
+          <section class="managementSection">
+            <div class="sectionHeader">
+              <h3>Аккаунты</h3>
+              <span id="managementAccountCount">0</span>
+            </div>
+            <div class="managementAccounts" id="managementAccounts"></div>
+          </section>
+
+          <section class="managementSection preferencesSection">
+            <div class="sectionHeader">
+              <h3>Настройки</h3>
+            </div>
+            <label>
+              Имя оператора
+              <input id="operatorNameInput" name="operatorName" placeholder="Оператор 1" />
+            </label>
+            <label>
+              Стартовый аккаунт
+              <select id="startAccountInput" name="startAccountId"></select>
+            </label>
+            <label class="checkboxLabel">
+              <input id="notificationsInput" name="notificationsEnabled" type="checkbox" />
+              Уведомления
+            </label>
+            <label class="checkboxLabel">
+              <input id="messagePreviewsInput" name="messagePreviewsEnabled" type="checkbox" />
+              Показывать текст сообщения в уведомлениях
+            </label>
+            <label class="checkboxLabel">
+              <input id="launchAtLoginInput" name="launchAtLogin" type="checkbox" />
+              Запускать при входе в macOS
+            </label>
+            <label class="checkboxLabel">
+              <input id="backgroundInput" name="keepInBackground" type="checkbox" />
+              Оставлять в фоне при закрытии окна
+            </label>
+            <label class="checkboxLabel">
+              <input id="compactModeInput" name="compactMode" type="checkbox" />
+              Компактная верхняя панель
+            </label>
+            <label class="checkboxLabel">
+              <input id="globalShortcutInput" name="globalShortcutEnabled" type="checkbox" />
+              Показывать/скрывать по Option+Space
+            </label>
+            <p class="settingsPath" id="globalShortcutStatus"></p>
+            <div class="securityBox">
+              <div>
+                <strong>PIN-блокировка</strong>
+                <span id="pinStatus">Выключена</span>
+              </div>
+              <label class="checkboxLabel">
+                <input id="pinEnabledInput" name="pinEnabled" type="checkbox" />
+                Включить PIN при запуске и скрытии окна
+              </label>
+              <label>
+                Новый PIN
+                <input
+                  id="pinInput"
+                  name="pin"
+                  inputmode="numeric"
+                  maxlength="12"
+                  placeholder="4-12 цифр"
+                  type="password"
+                />
+              </label>
+            </div>
+            <button class="ghostButton wideButton" id="openSettingsFileButton" type="button">
+              Показать файл настроек
+            </button>
+            <p class="settingsPath" id="settingsPath"></p>
+            <p class="settingsPath" id="appVersionText"></p>
+          </section>
+        </div>
+
+        <div class="modalActions">
+          <button class="primaryButton" type="submit">Сохранить настройки</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="modalBackdrop" id="editBackdrop" hidden>
+      <form class="modal" id="editForm">
+        <h2>Редактировать аккаунт</h2>
+        <label>
+          Название
+          <input id="editLabelInput" name="label" />
+        </label>
+        <label id="editPhoneField">
+          Номер телефона
+          <input id="editPhoneInput" name="phone" placeholder="+79990000000" />
+        </label>
+        <div class="modalActions">
+          <button class="ghostButton" id="editCancelButton" type="button">Отмена</button>
+          <button class="primaryButton" type="submit">Сохранить</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="commandBackdrop" id="commandBackdrop" hidden>
+      <div class="commandPalette" role="dialog" aria-modal="true" aria-label="Быстрое переключение">
+        <div class="commandInputWrap">
+          <input
+            id="commandInput"
+            autocomplete="off"
+            placeholder="Найти аккаунт по названию, номеру или платформе"
+            spellcheck="false"
+          />
+          <span>Cmd K</span>
+        </div>
+        <div class="commandResults" id="commandResults"></div>
+      </div>
+    </div>
+
+    <div class="modalBackdrop" id="onboardingBackdrop" hidden>
+      <form class="modal onboardingModal" id="onboardingForm">
+        <div class="modalHeader">
+          <div>
+            <h2>Первый запуск</h2>
+            <p>Назовите это рабочее место, затем добавьте нужные мессенджеры.</p>
+          </div>
+        </div>
+        <label>
+          Имя оператора
+          <input id="onboardingNameInput" name="operatorName" placeholder="Оператор 1" />
+        </label>
+        <div class="onboardingSteps">
+          <div>
+            <strong>1</strong>
+            <span>Укажите имя оператора или компьютера</span>
+          </div>
+          <div>
+            <strong>2</strong>
+            <span>Нажмите “Добавить мессенджер” и войдите в аккаунты</span>
+          </div>
+          <div>
+            <strong>3</strong>
+            <span>Настройте уведомления для каждого аккаунта</span>
+          </div>
+        </div>
+        <div class="modalActions">
+          <button class="primaryButton" type="submit">Начать работу</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="lockBackdrop" id="lockBackdrop" hidden>
+      <form class="lockPanel" id="lockForm">
+        <div class="mark">M</div>
+        <h2>Messenger Hub заблокирован</h2>
+        <p>Введите PIN, чтобы вернуться к рабочим аккаунтам.</p>
+        <input
+          id="lockPinInput"
+          autocomplete="current-password"
+          inputmode="numeric"
+          maxlength="12"
+          placeholder="PIN"
+          type="password"
+        />
+        <p class="lockError" id="lockError" hidden>Неверный PIN</p>
+        <button class="primaryButton" type="submit">Разблокировать</button>
+      </form>
+    </div>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>

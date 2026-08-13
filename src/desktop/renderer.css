@@ -1,0 +1,1014 @@
+:root {
+  color: #17201b;
+  background: #f8f6ef;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 980px;
+  min-height: 680px;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+}
+
+.sidebar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  height: 76px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #d9d7ce;
+  background: #f8f6ef;
+  z-index: 8;
+}
+
+body.compactMode .sidebar {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 8px;
+  height: 56px;
+  padding: 7px 10px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 210px;
+}
+
+body.compactMode .brand {
+  min-width: 162px;
+  gap: 8px;
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  color: #f8f6ef;
+  font-weight: 800;
+  background: #21362c;
+}
+
+body.compactMode .mark {
+  width: 34px;
+  height: 34px;
+  font-size: 13px;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+body.compactMode .brand h1 {
+  font-size: 14px;
+}
+
+.brand span,
+.account span,
+.location span {
+  color: #70766f;
+  font-size: 12px;
+}
+
+.accountList {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 2px;
+}
+
+.emptyAccounts {
+  display: grid;
+  place-items: center;
+  min-width: 220px;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px dashed #beb9ad;
+  border-radius: 8px;
+  color: #70766f;
+  font-size: 12px;
+  font-weight: 800;
+  background: #fffdf8;
+}
+
+.account {
+  display: grid;
+  grid-template-columns: 32px minmax(88px, 1fr) auto 24px;
+  align-items: center;
+  flex: 0 0 190px;
+  gap: 7px;
+  min-height: 48px;
+  padding: 6px 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: grab;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+body.compactMode .account {
+  grid-template-columns: 28px minmax(54px, 1fr) auto 22px;
+  flex-basis: 138px;
+  gap: 5px;
+  min-height: 38px;
+  padding: 4px 5px;
+}
+
+.account:active {
+  cursor: grabbing;
+}
+
+.accountText {
+  min-width: 0;
+}
+
+.account:hover,
+.account.active {
+  border-color: #d6d2c7;
+  background: #fffdf8;
+}
+
+.account.dragging {
+  opacity: 0.46;
+  transform: scale(0.98);
+}
+
+.account.dragOver {
+  border-color: #177245;
+  background: #eef7f1;
+}
+
+.accountIcon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: #f8f6ef;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+body.compactMode .accountIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+}
+
+.platformGlyph {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
+.platformGlyph.whatsapp::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+}
+
+.platformGlyph.whatsapp::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  bottom: 2px;
+  width: 6px;
+  height: 6px;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-22deg);
+}
+
+.platformGlyph.telegram::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 3px;
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 16px solid currentColor;
+  transform: skewX(-14deg);
+}
+
+.platformGlyph.telegram::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  top: 7px;
+  width: 7px;
+  height: 2px;
+  background: #2573b8;
+  transform: rotate(-29deg);
+}
+
+.platformGlyph.instagram::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 2px solid currentColor;
+  border-radius: 5px;
+}
+
+.platformGlyph.instagram::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 7px;
+  width: 4px;
+  height: 4px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  box-shadow: 5px -5px 0 -2px currentColor;
+}
+
+.whatsapp .accountIcon {
+  background: #177245;
+}
+
+.telegram .accountIcon {
+  background: #2573b8;
+}
+
+.instagram .accountIcon {
+  background: #923b79;
+}
+
+.account strong {
+  display: block;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.compactMode .account strong {
+  font-size: 12px;
+}
+
+body.compactMode .accountText span {
+  display: none;
+}
+
+.accountMore {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  color: #70766f;
+  background: transparent;
+  cursor: pointer;
+}
+
+body.compactMode .accountMore {
+  width: 22px;
+  height: 26px;
+}
+
+.accountMore:hover {
+  color: #17201b;
+  background: #ece9dc;
+}
+
+.unreadBadge {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  background: #177245;
+}
+
+body.compactMode .unreadBadge {
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  font-size: 10px;
+}
+
+.unreadBadge[hidden] {
+  display: none;
+}
+
+.accountMenu {
+  position: fixed;
+  left: 14px;
+  z-index: 30;
+  display: grid;
+  width: 220px;
+  padding: 6px;
+  border: 1px solid #d8d6cc;
+  border-radius: 8px;
+  background: #fffdf8;
+  box-shadow: 0 12px 30px rgba(23, 32, 27, 0.16);
+}
+
+.accountMenu[hidden] {
+  display: none;
+}
+
+.accountMenu button {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  color: #17201b;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.accountMenu button:hover {
+  background: #f1eee5;
+}
+
+.toolbar {
+  position: fixed;
+  inset: 76px 0 auto 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  padding: 8px 14px;
+  border-bottom: 1px solid #d9d7ce;
+  background: #fffdf8;
+  z-index: 7;
+}
+
+body.compactMode .toolbar {
+  inset: 56px 0 auto 0;
+  height: 44px;
+  padding: 6px 10px;
+}
+
+.navButtons {
+  display: flex;
+  gap: 6px;
+}
+
+.navButtons button,
+.ghostButton {
+  display: grid;
+  place-items: center;
+  height: 34px;
+  border: 1px solid #d8d6cc;
+  border-radius: 8px;
+  color: #17201b;
+  background: #f8f6ef;
+  cursor: pointer;
+}
+
+body.compactMode .navButtons button,
+body.compactMode .ghostButton {
+  height: 30px;
+}
+
+.navButtons button {
+  width: 34px;
+  font-size: 22px;
+  line-height: 1;
+}
+
+body.compactMode .navButtons button {
+  width: 30px;
+  font-size: 19px;
+}
+
+.navButtons button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.ghostButton {
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.location {
+  min-width: 0;
+}
+
+.location strong,
+.location span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.location strong {
+  font-size: 13px;
+}
+
+.addButton {
+  display: grid;
+  place-items: center;
+  width: auto;
+  min-width: 178px;
+  min-height: 42px;
+  margin-top: 0;
+  padding: 0 12px;
+  border: 1px dashed #beb9ad;
+  border-radius: 8px;
+  color: #21362c;
+  font-size: 13px;
+  font-weight: 800;
+  background: transparent;
+  cursor: pointer;
+}
+
+body.compactMode .addButton {
+  min-width: 132px;
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.addButton:hover {
+  border-style: solid;
+  background: #fffdf8;
+}
+
+.settingsButton {
+  display: grid;
+  place-items: center;
+  width: auto;
+  min-width: 98px;
+  min-height: 34px;
+  margin-top: 0;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #49514a;
+  font-size: 12px;
+  font-weight: 800;
+  background: transparent;
+  cursor: pointer;
+}
+
+body.compactMode .settingsButton {
+  min-width: 86px;
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.settingsButton:hover {
+  border-color: #d8d6cc;
+  background: #fffdf8;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 128px 0 auto 0;
+  display: grid;
+  place-items: start center;
+  min-height: 344px;
+  padding: 18px;
+  border-bottom: 1px solid #d9d7ce;
+  background: rgba(248, 246, 239, 0.95);
+  box-shadow: 0 18px 34px rgba(23, 32, 27, 0.08);
+  backdrop-filter: blur(14px);
+  z-index: 18;
+}
+
+body.compactMode .modalBackdrop {
+  inset: 100px 0 auto 0;
+}
+
+#settingsBackdrop {
+  min-height: 468px;
+}
+
+.modalBackdrop[hidden] {
+  display: none;
+}
+
+.commandBackdrop {
+  position: fixed;
+  inset: 128px 0 auto 0;
+  display: grid;
+  place-items: start center;
+  min-height: 288px;
+  padding: 18px;
+  border-bottom: 1px solid #d9d7ce;
+  background: rgba(248, 246, 239, 0.96);
+  box-shadow: 0 18px 34px rgba(23, 32, 27, 0.08);
+  backdrop-filter: blur(14px);
+  z-index: 22;
+}
+
+body.compactMode .commandBackdrop {
+  inset: 100px 0 auto 0;
+}
+
+.commandBackdrop[hidden] {
+  display: none;
+}
+
+.commandPalette {
+  display: grid;
+  gap: 8px;
+  width: min(620px, calc(100vw - 40px));
+  padding: 10px;
+  border: 1px solid #d8d6cc;
+  border-radius: 8px;
+  background: #fffdf8;
+  box-shadow: 0 18px 42px rgba(23, 32, 27, 0.16);
+}
+
+.commandInputWrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 1px solid #d8d6cc;
+  border-radius: 8px;
+  background: #f8f6ef;
+}
+
+.commandInputWrap input {
+  width: 100%;
+  height: 30px;
+  border: 0;
+  outline: 0;
+  color: #17201b;
+  font: inherit;
+  font-size: 14px;
+  background: transparent;
+}
+
+.commandInputWrap span,
+.commandHint {
+  color: #70766f;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.commandResults {
+  display: grid;
+  gap: 4px;
+  max-height: 190px;
+  overflow: auto;
+}
+
+.commandResult {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 48px;
+  padding: 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.commandResult.selected,
+.commandResult:hover {
+  border-color: #8fbaa0;
+  background: #f1faf4;
+}
+
+.commandResultText {
+  min-width: 0;
+}
+
+.commandResultText strong,
+.commandResultText span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commandResultText strong {
+  font-size: 13px;
+}
+
+.commandResultText span,
+.commandEmpty {
+  color: #70766f;
+  font-size: 12px;
+}
+
+.commandEmpty {
+  padding: 16px 10px;
+  text-align: center;
+}
+
+.modal {
+  display: grid;
+  gap: 10px;
+  width: min(430px, calc(100vw - 40px));
+  padding: 14px;
+  border: 1px solid #d8d6cc;
+  border-radius: 8px;
+  background: #fffdf8;
+  box-shadow: 0 14px 34px rgba(23, 32, 27, 0.16);
+}
+
+.modal h2 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.modalHeader p {
+  margin: 4px 0 0;
+  color: #70766f;
+  font-size: 12px;
+}
+
+.modal label {
+  display: grid;
+  gap: 6px;
+  color: #49514a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.modal .checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal .checkboxLabel input {
+  width: 16px;
+  height: 16px;
+}
+
+.modal input,
+.modal select {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #d8d6cc;
+  border-radius: 8px;
+  color: #17201b;
+  background: #f8f6ef;
+}
+
+.modal label[hidden] {
+  display: none;
+}
+
+.settingsPath {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #70766f;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.securityBox {
+  display: grid;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid #e3e0d5;
+  border-radius: 8px;
+  background: #fffdf8;
+}
+
+.securityBox > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.securityBox strong {
+  font-size: 12px;
+}
+
+.securityBox span {
+  color: #70766f;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.managementModal {
+  width: min(940px, calc(100vw - 40px));
+  max-height: 432px;
+  overflow: auto;
+}
+
+.onboardingModal {
+  width: min(520px, calc(100vw - 40px));
+}
+
+.onboardingSteps {
+  display: grid;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.onboardingSteps div {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  padding: 7px;
+  border: 1px solid #e3e0d5;
+  border-radius: 8px;
+  background: #f8f6ef;
+}
+
+.onboardingSteps strong {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 11px;
+  background: #177245;
+}
+
+.onboardingSteps span {
+  color: #49514a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.managementLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(270px, 0.8fr);
+  gap: 12px;
+}
+
+.managementSection {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e3e0d5;
+  border-radius: 8px;
+  background: #f8f6ef;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sectionHeader h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.sectionHeader span {
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: #177245;
+  font-size: 11px;
+  font-weight: 800;
+  background: #e8f4ec;
+}
+
+.managementAccounts {
+  display: grid;
+  gap: 6px;
+  max-height: 284px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.managementAccount {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: #fffdf8;
+}
+
+.managementAccount.active {
+  border-color: #8fbaa0;
+  background: #f1faf4;
+}
+
+.managementAccount.muted {
+  opacity: 0.72;
+}
+
+.managementAccountText {
+  min-width: 0;
+}
+
+.managementAccountText strong,
+.managementAccountText span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.managementAccountText strong {
+  font-size: 13px;
+}
+
+.managementAccountText span,
+.shortcutHint {
+  color: #70766f;
+  font-size: 11px;
+}
+
+.shortcutHint {
+  min-width: 42px;
+  text-align: right;
+}
+
+.managementActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.miniButton {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid #d8d6cc;
+  border-radius: 7px;
+  color: #17201b;
+  font-size: 11px;
+  font-weight: 800;
+  background: #f8f6ef;
+  cursor: pointer;
+}
+
+.miniButton:hover,
+.wideButton:hover {
+  background: #fffdf8;
+}
+
+.miniButton.danger {
+  color: #9b2c2c;
+}
+
+.preferencesSection {
+  gap: 11px;
+}
+
+.wideButton {
+  width: 100%;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.primaryButton {
+  display: grid;
+  place-items: center;
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  background: #177245;
+  cursor: pointer;
+}
+
+.lockBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    linear-gradient(135deg, rgba(248, 246, 239, 0.98), rgba(236, 233, 220, 0.98)),
+    #f8f6ef;
+}
+
+.lockBackdrop[hidden] {
+  display: none;
+}
+
+.lockPanel {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(360px, calc(100vw - 48px));
+  padding: 22px;
+  border: 1px solid #d8d6cc;
+  border-radius: 8px;
+  background: #fffdf8;
+  box-shadow: 0 20px 54px rgba(23, 32, 27, 0.16);
+}
+
+.lockPanel .mark {
+  width: 46px;
+  height: 46px;
+}
+
+.lockPanel h2 {
+  margin: 0;
+  font-size: 17px;
+  text-align: center;
+}
+
+.lockPanel p {
+  margin: 0;
+  color: #70766f;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.lockPanel input {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #d8d6cc;
+  border-radius: 8px;
+  color: #17201b;
+  font-size: 16px;
+  text-align: center;
+  background: #f8f6ef;
+}
+
+.lockPanel .primaryButton {
+  width: 100%;
+}
+
+.lockError {
+  color: #9b2c2c !important;
+  font-weight: 800;
+}

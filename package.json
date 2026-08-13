@@ -1,0 +1,57 @@
+{
+  "name": "all-in-one-messengers",
+  "version": "1.4.0",
+  "description": "Local desktop messenger hub for multiple web messenger sessions.",
+  "private": true,
+  "type": "module",
+  "main": "src/desktop/main.cjs",
+  "author": "",
+  "license": "ISC",
+  "scripts": {
+    "start": "electron .",
+    "start:devtools": "MESSENGER_HUB_DEVTOOLS=1 electron .",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist": "electron-builder --mac --win"
+  },
+  "devDependencies": {
+    "electron": "^43.1.0",
+    "electron-builder": "^26.0.12"
+  },
+  "dependencies": {},
+  "build": {
+    "appId": "local.messenger-hub.desktop",
+    "productName": "Messenger Hub",
+    "files": [
+      "src/desktop/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "installers"
+    },
+    "mac": {
+      "category": "public.app-category.social-networking",
+      "icon": "src/desktop/assets/icon.icns",
+      "target": [
+        { "target": "dmg", "arch": ["arm64"] },
+        { "target": "zip", "arch": ["arm64"] }
+      ],
+      "extendInfo": {
+        "NSCameraUsageDescription": "Нужен доступ к камере для видеозвонков в мессенджерах.",
+        "NSMicrophoneUsageDescription": "Нужен доступ к микрофону для звонков и голосовых сообщений.",
+        "NSAudioCaptureUsageDescription": "Нужен доступ к звуку для голосовых сообщений."
+      }
+    },
+    "win": {
+      "icon": "src/desktop/assets/icon.png",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "zip", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
