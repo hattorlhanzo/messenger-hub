@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(mkdir -p macapp)",
-      "Bash(unzip -q -o \"/Users/abi/Desktop/claude/messenger hub/installers/Messenger Hub-1.3.0-arm64-mac.zip\" -d macapp)"
-    ]
-  }
-}
