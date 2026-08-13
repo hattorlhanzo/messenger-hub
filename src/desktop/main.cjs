@@ -163,8 +163,17 @@ function createWindow() {
 }
 
 function createAccountView(account, { load = true } = {}) {
-  if (views.has(account.id)) {
-    return views.get(account.id);
+  const existingView = views.get(account.id);
+
+  if (existingView) {
+    if (!existingView.webContents.isDestroyed()) {
+      return existingView;
+    }
+
+    // Окно закрыли и открыли заново: прежние вьюхи умерли вместе с ним.
+    // Без этой проверки в списке оставались бы мёртвые пустые вкладки.
+    views.delete(account.id);
+    accountStatuses.delete(account.id);
   }
 
   configureAccountSession(account);
@@ -218,6 +227,11 @@ function createAccountView(account, { load = true } = {}) {
   });
 
   view.webContents.on("render-process-gone", (_event, details) => {
+    // При закрытии приложения вьюхи гибнут штатно — это не сбой.
+    if (isQuitting) {
+      return;
+    }
+
     unreadCounts.set(account.id, 0);
     broadcastAccountState();
 
@@ -268,9 +282,14 @@ function loadAccountView(account) {
 // Активный аккаунт поднимаем сразу, остальные — по очереди. Счётчики непрочитанных
 // по-прежнему приходят со всех аккаунтов, просто страницы стартуют не разом.
 function startStaggeredLoad() {
+  // Уже поднятые аккаунты не трогаем: повторный вызов при переоткрытии окна
+  // не должен перезагружать работающие мессенджеры.
+  const pending = webAccounts.filter(
+    (account) => (accountStatuses.get(account.id) || "idle") === "idle"
+  );
   const ordered = [
-    ...webAccounts.filter((account) => account.id === activeAccountId),
-    ...webAccounts.filter((account) => account.id !== activeAccountId)
+    ...pending.filter((account) => account.id === activeAccountId),
+    ...pending.filter((account) => account.id !== activeAccountId)
   ];
 
   ordered.forEach((account, index) => {
@@ -667,7 +686,10 @@ function broadcastAccountState() {
 // успевает исчезнуть раньше последней рассылки. Само по себе это не ошибка,
 // поэтому просто молча пропускаем отправку в уже закрытое окно.
 function sendToRenderer(channel, payload) {
-  if (!windowRef || windowRef.isDestroyed() || windowRef.webContents.isDestroyed()) {
+  // При выходе кадр рендерера исчезает раньше, чем webContents помечается
+  // уничтоженным, и Electron пишет в лог ошибку отправки. Обновлять интерфейс
+  // на этом этапе всё равно незачем.
+  if (isQuitting || !windowRef || windowRef.isDestroyed() || windowRef.webContents.isDestroyed()) {
     return;
   }
 
