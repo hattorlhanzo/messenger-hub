@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const { readJsonWithFallback, writeJsonAtomically } = require("./jsonStore.cjs");
 
 const projectRoot = path.resolve(__dirname, "../..");
 const fallbackDataDir = path.join(projectRoot, "data");
@@ -52,8 +53,10 @@ function loadAccounts() {
     return defaultAccounts;
   }
 
-  const raw = fs.readFileSync(accountsPath, "utf8");
-  const accounts = JSON.parse(raw);
+  const accounts = readJsonWithFallback(accountsPath, {
+    isValid: Array.isArray,
+    fallback: []
+  });
   return accounts.map(createAccount);
 }
 
@@ -61,7 +64,7 @@ function saveAccounts(accounts) {
   const dataDir = getDataDir();
   const accountsPath = getAccountsPath();
   fs.mkdirSync(dataDir, { recursive: true });
-  fs.writeFileSync(accountsPath, JSON.stringify(accounts, null, 2));
+  writeJsonAtomically(accountsPath, accounts);
 }
 
 function addAccount(input) {

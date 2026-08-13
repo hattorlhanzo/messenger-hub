@@ -7,7 +7,9 @@ const {
   globalShortcut,
   ipcMain,
   Menu,
+  net,
   Notification,
+  powerMonitor,
   screen,
   session,
   shell
@@ -21,12 +23,30 @@ const {
 } = require("./accounts.cjs");
 const { getSettingsPath, loadSettings, updateSettings } = require("./settings.cjs");
 
+// Папку профиля Electron по умолчанию выводит из поля name в package.json. Любое
+// переименование пакета увело бы приложение на пустой профиль — со стороны это
+// выглядит как одновременный разлогин во всех аккаунтах. Закрепляем путь явно.
+// Переменная окружения нужна, чтобы проверять сборку на отдельном профиле,
+// не трогая рабочие сессии.
+app.setPath(
+  "userData",
+  process.env.MESSENGER_HUB_PROFILE_DIR ||
+    path.join(app.getPath("appData"), "all-in-one-messengers")
+);
+
 const regularTopbarHeight = 76;
 const regularToolbarHeight = 52;
 const compactTopbarHeight = 56;
 const compactToolbarHeight = 44;
 const defaultOverlayHeight = 344;
 const defaultGlobalShortcut = "Alt+Space";
+// Восемь тяжёлых веб-приложений, стартующих одновременно, забивали сеть и процессор
+// настолько, что часть из них не успевала подняться. Разносим запуск во времени.
+const accountLoadStaggerMs = 1500;
+const storageFlushIntervalMs = 3 * 60 * 1000;
+const onlineCheckIntervalMs = 5000;
+const retryDelaysMs = [2000, 5000, 10000, 30000, 60000, 120000];
+const maxReloadsAfterCrash = 3;
 
 let windowRef;
 let webAccounts = [];
@@ -37,7 +57,21 @@ const unreadCounts = new Map();
 const configuredSessionPartitions = new Set();
 const recentPreviewKeys = new Map();
 const recentPreviewAt = new Map();
+// "loading" | "ready" | "offline" — состояние загрузки страницы аккаунта.
+// Раньше отличить «нет сети» от «разлогинило» было невозможно даже в коде.
+const accountStatuses = new Map();
+const retryTimers = new Map();
+const retryAttempts = new Map();
+// Аккаунты, чья текущая загрузка провалилась. Нужен отдельный признак, потому что
+// страница ошибки Chromium — это тоже успешно загруженная страница.
+const failedAccounts = new Set();
+const reloadsAfterCrash = new Map();
+const pendingLoadTimers = new Set();
 const isDevToolsEnabled = process.env.MESSENGER_HUB_DEVTOOLS === "1";
+let storageFlushTimer;
+let onlineWatchTimer;
+let wasOnline = true;
+let isFlushingBeforeQuit = false;
 let isQuitting = false;
 let reservedOverlayHeight = 0;
 let isInterfaceLocked = false;
@@ -77,7 +111,10 @@ function createWindow() {
   win.setMaxListeners(40);
   win.loadFile(path.join(__dirname, "renderer.html"));
 
-  webAccounts.forEach(createAccountView);
+  webAccounts.forEach((account) => createAccountView(account, { load: false }));
+  startStaggeredLoad();
+  startStorageFlushTimer();
+  startOnlineWatch();
 
   win.once("ready-to-show", () => {
     selectAccount(activeAccountId);
@@ -112,6 +149,9 @@ function createWindow() {
       event.preventDefault();
       requestRendererLock();
       win.hide();
+      // Закрытие окна пользователь воспринимает как выход, так что это
+      // подходящий момент дописать сессии на диск.
+      void flushAllSessions();
     }
   });
   win.on("closed", () => {
@@ -122,7 +162,7 @@ function createWindow() {
   registerGlobalShortcut();
 }
 
-function createAccountView(account) {
+function createAccountView(account, { load = true } = {}) {
   if (views.has(account.id)) {
     return views.get(account.id);
   }
@@ -152,16 +192,100 @@ function createAccountView(account) {
   });
   view.webContents.on("page-title-updated", () => updateAccountTitleState(account));
   view.webContents.on("did-finish-load", () => {
+    // Chromium присылает did-finish-load и когда показал свою страницу ошибки.
+    // Без этой проверки неудачная загрузка считалась успешной, а запланированный
+    // повтор отменялся сразу после того, как был назначен.
+    if (failedAccounts.has(account.id)) {
+      return;
+    }
+
     installNotificationBridge(view);
+    requestPersistentStorage(view, account);
+    markAccountReady(account);
     updateAccountTitleState(account);
   });
-  view.webContents.on("render-process-gone", () => {
+
+  // Раньше этого обработчика не было вовсе: при обрыве связи вьюха навсегда
+  // оставалась на странице ошибки Chromium, и пользователь читал это как разлогин.
+  view.webContents.on("did-fail-load", (_event, errorCode, errorDescription, _url, isMainFrame) => {
+    if (!isMainFrame || errorCode === -3) {
+      return; // -3 = ERR_ABORTED, обычная отмена при быстрой смене страницы.
+    }
+
+    console.error(`Account ${account.id} failed to load: ${errorDescription} (${errorCode})`);
+    failedAccounts.add(account.id);
+    scheduleAccountRetry(account);
+  });
+
+  view.webContents.on("render-process-gone", (_event, details) => {
     unreadCounts.set(account.id, 0);
     broadcastAccountState();
+
+    if (details?.reason === "clean-exit") {
+      return;
+    }
+
+    // Упавшая вкладка раньше оставалась белым прямоугольником до перезапуска
+    // приложения. Поднимаем её сами, но не бесконечно: если страница падает
+    // раз за разом, циклическая перезагрузка сделает только хуже.
+    const attempts = (reloadsAfterCrash.get(account.id) || 0) + 1;
+    reloadsAfterCrash.set(account.id, attempts);
+
+    if (attempts > maxReloadsAfterCrash) {
+      console.error(`Account ${account.id} keeps crashing, giving up after ${attempts} reloads`);
+      setAccountStatus(account.id, "offline");
+      return;
+    }
+
+    scheduleAccountRetry(account);
   });
-  view.webContents.loadURL(account.url);
+
   views.set(account.id, view);
+  setAccountStatus(account.id, load ? "loading" : "idle");
+
+  if (load) {
+    loadAccountView(account);
+  }
+
   return view;
+}
+
+function loadAccountView(account) {
+  const view = views.get(account.id);
+  if (!view || view.webContents.isDestroyed()) {
+    return;
+  }
+
+  failedAccounts.delete(account.id);
+  setAccountStatus(account.id, "loading");
+  view.webContents.loadURL(account.url).catch((error) => {
+    // loadURL отклоняется тем же кодом, что придёт в did-fail-load,
+    // поэтому здесь только гасим необработанное отклонение промиса.
+    console.error(`Account ${account.id} load rejected:`, error.message);
+  });
+}
+
+// Активный аккаунт поднимаем сразу, остальные — по очереди. Счётчики непрочитанных
+// по-прежнему приходят со всех аккаунтов, просто страницы стартуют не разом.
+function startStaggeredLoad() {
+  const ordered = [
+    ...webAccounts.filter((account) => account.id === activeAccountId),
+    ...webAccounts.filter((account) => account.id !== activeAccountId)
+  ];
+
+  ordered.forEach((account, index) => {
+    if (index === 0) {
+      loadAccountView(account);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      pendingLoadTimers.delete(timer);
+      loadAccountView(account);
+    }, index * accountLoadStaggerMs);
+
+    pendingLoadTimers.add(timer);
+  });
 }
 
 function selectAccount(accountId = activeAccountId) {
@@ -179,10 +303,20 @@ function selectAccount(accountId = activeAccountId) {
 
   activeAccountId = accountId;
   appSettings = updateSettings({ lastAccountId: accountId });
+
+  // Аккаунт, до которого ещё не дошла очередь ступенчатого запуска,
+  // поднимаем немедленно — пользователь его как раз открыл.
+  if (accountStatuses.get(accountId) === "idle") {
+    const account = webAccounts.find((item) => item.id === accountId);
+    if (account) {
+      loadAccountView(account);
+    }
+  }
+
   win.addBrowserView(nextView);
   layoutActiveView();
   createApplicationMenu();
-  win.webContents.send("accounts:changed", { activeAccountId });
+  sendToRenderer("accounts:changed", { activeAccountId });
   sendNavigationState();
 }
 
@@ -292,7 +426,7 @@ function sendNavigationState() {
     return;
   }
 
-  win.webContents.send("view:navigation", {
+  sendToRenderer("view:navigation", {
     title: view.webContents.getTitle(),
     url: view.webContents.getURL(),
     canGoBack: view.webContents.navigationHistory.canGoBack(),
@@ -304,6 +438,7 @@ ipcMain.handle("accounts:list", () => ({
   accounts: webAccounts,
   activeAccountId,
   unreadCounts: Object.fromEntries(unreadCounts),
+  accountStatuses: Object.fromEntries(accountStatuses),
   isDevToolsEnabled,
   settings: appSettings,
   settingsPath: getSettingsPath(),
@@ -318,7 +453,7 @@ ipcMain.handle("accounts:add", (_event, input) => {
   selectAccount(account.id);
   createApplicationMenu();
   const payload = accountStatePayload({ account });
-  windowRef?.webContents.send("accounts:list-changed", payload);
+  sendToRenderer("accounts:list-changed", payload);
   return payload;
 });
 
@@ -327,7 +462,7 @@ ipcMain.handle("accounts:update", (_event, id, patch) => {
   webAccounts = loadAccounts();
   createApplicationMenu();
   const payload = accountStatePayload({ account });
-  windowRef?.webContents.send("accounts:list-changed", payload);
+  sendToRenderer("accounts:list-changed", payload);
   return payload;
 });
 
@@ -346,7 +481,12 @@ ipcMain.handle("accounts:remove", async (_event, id, options = {}) => {
     await clearAccountSession(account.partition);
   }
 
+  clearAccountRetry(id);
   unreadCounts.delete(id);
+  accountStatuses.delete(id);
+  retryAttempts.delete(id);
+  reloadsAfterCrash.delete(id);
+  failedAccounts.delete(id);
   webAccounts = removeAccount(id);
   activeAccountId = activeAccountId === id ? webAccounts[0]?.id : activeAccountId;
   webAccounts.forEach(createAccountView);
@@ -439,6 +579,17 @@ ipcMain.handle("settings:show-file", () => {
 });
 
 ipcMain.handle("view:reload", () => {
+  const account = webAccounts.find((item) => item.id === activeAccountId);
+
+  // На странице ошибки reload() повторил бы саму ошибку, поэтому упавший
+  // аккаунт грузим с его адреса заново и сбрасываем счётчик попыток.
+  if (account && accountStatuses.get(account.id) === "offline") {
+    retryAttempts.delete(account.id);
+    clearAccountRetry(account.id);
+    loadAccountView(account);
+    return { ok: true };
+  }
+
   activeView()?.webContents.reload();
   return { ok: true };
 });
@@ -508,9 +659,23 @@ function extractUnreadCount(title = "") {
 }
 
 function broadcastAccountState() {
-  const payload = accountStatePayload();
-  windowRef?.webContents.send("accounts:list-changed", payload);
+  sendToRenderer("accounts:list-changed", accountStatePayload());
   updateDockBadge();
+}
+
+// Состояние аккаунтов рассылается заметно чаще, чем раньше, и при выходе окно
+// успевает исчезнуть раньше последней рассылки. Само по себе это не ошибка,
+// поэтому просто молча пропускаем отправку в уже закрытое окно.
+function sendToRenderer(channel, payload) {
+  if (!windowRef || windowRef.isDestroyed() || windowRef.webContents.isDestroyed()) {
+    return;
+  }
+
+  try {
+    windowRef.webContents.send(channel, payload);
+  } catch {
+    // Кадр рендерера мог быть уничтожен между проверкой и отправкой.
+  }
 }
 
 function accountStatePayload(extra = {}) {
@@ -518,6 +683,7 @@ function accountStatePayload(extra = {}) {
     accounts: webAccounts,
     activeAccountId,
     unreadCounts: Object.fromEntries(unreadCounts),
+    accountStatuses: Object.fromEntries(accountStatuses),
     isDevToolsEnabled,
     settings: appSettings,
     settingsPath: getSettingsPath(),
@@ -622,6 +788,153 @@ function shouldShowPreview(accountId, title, body) {
   return true;
 }
 
+function setAccountStatus(accountId, status) {
+  if (accountStatuses.get(accountId) === status) {
+    return;
+  }
+
+  accountStatuses.set(accountId, status);
+  broadcastAccountState();
+}
+
+function markAccountReady(account) {
+  if (retryAttempts.has(account.id)) {
+    console.info(`Account ${account.id} is back online`);
+  }
+
+  retryAttempts.delete(account.id);
+  reloadsAfterCrash.delete(account.id);
+  clearAccountRetry(account.id);
+  setAccountStatus(account.id, "ready");
+}
+
+// Повтор с нарастающей паузой: короткие обрывы связи чинятся за пару секунд,
+// а долгое отсутствие сети не превращается в бесконечный поток запросов.
+function scheduleAccountRetry(account) {
+  // При выходе вьюхи закрываются штатно, и поднимать их заново уже незачем.
+  if (isQuitting) {
+    return;
+  }
+
+  setAccountStatus(account.id, "offline");
+  clearAccountRetry(account.id);
+
+  const attempt = retryAttempts.get(account.id) || 0;
+  const delay = retryDelaysMs[Math.min(attempt, retryDelaysMs.length - 1)];
+  retryAttempts.set(account.id, attempt + 1);
+  console.info(`Account ${account.id} retry #${attempt + 1} in ${delay}ms`);
+
+  const timer = setTimeout(() => {
+    retryTimers.delete(account.id);
+    loadAccountView(account);
+  }, delay);
+
+  retryTimers.set(account.id, timer);
+}
+
+function clearAccountRetry(accountId) {
+  const timer = retryTimers.get(accountId);
+  if (timer) {
+    clearTimeout(timer);
+    retryTimers.delete(accountId);
+  }
+}
+
+function retryOfflineAccounts(reason) {
+  const offlineAccounts = webAccounts.filter(
+    (account) => accountStatuses.get(account.id) === "offline"
+  );
+
+  if (offlineAccounts.length === 0) {
+    return;
+  }
+
+  console.info(`Reloading ${offlineAccounts.length} account(s): ${reason}`);
+  offlineAccounts.forEach((account, index) => {
+    retryAttempts.delete(account.id);
+    clearAccountRetry(account.id);
+
+    const timer = setTimeout(() => {
+      pendingLoadTimers.delete(timer);
+      loadAccountView(account);
+    }, index * 600);
+
+    pendingLoadTimers.add(timer);
+  });
+}
+
+// Ждать истечения паузы после возвращения сети незачем — поднимаем упавшие
+// аккаунты сразу, как только связь появилась или Mac проснулся.
+function startOnlineWatch() {
+  clearInterval(onlineWatchTimer);
+  wasOnline = net.isOnline();
+
+  onlineWatchTimer = setInterval(() => {
+    const isOnline = net.isOnline();
+    if (isOnline && !wasOnline) {
+      retryOfflineAccounts("network is back");
+    }
+    wasOnline = isOnline;
+  }, onlineCheckIntervalMs);
+}
+
+// Chromium держит свежие куки и localStorage в памяти. Instagram регулярно
+// перевыпускает sessionid, и выход до записи на диск означал вход заново.
+function startStorageFlushTimer() {
+  clearInterval(storageFlushTimer);
+  storageFlushTimer = setInterval(() => {
+    void flushAllSessions();
+  }, storageFlushIntervalMs);
+}
+
+async function flushAllSessions() {
+  const partitions = new Set(
+    webAccounts.map((account) => account.partition).filter(Boolean)
+  );
+
+  await Promise.all(
+    [...partitions].map(async (partition) => {
+      try {
+        const accountSession = session.fromPartition(partition);
+        await accountSession.cookies.flushStore();
+        accountSession.flushStorageData();
+      } catch (error) {
+        console.error(`Failed to flush ${partition}:`, error.message);
+      }
+    })
+  );
+}
+
+// Без этого права Chromium считает данные сайта расходными и вправе удалить их,
+// когда решит освободить место — то есть разлогинить все аккаунты разом.
+function requestPersistentStorage(view, account) {
+  if (!view || view.webContents.isDestroyed()) {
+    return;
+  }
+
+  view.webContents
+    .executeJavaScript(
+      `(async () => {
+        try {
+          if (!navigator.storage || !navigator.storage.persist) {
+            return "unsupported";
+          }
+          if (await navigator.storage.persisted()) {
+            return "already";
+          }
+          return (await navigator.storage.persist()) ? "granted" : "denied";
+        } catch (error) {
+          return "error";
+        }
+      })();`,
+      false
+    )
+    .then((result) => {
+      console.info(`Account ${account.id} persistent storage: ${result}`);
+    })
+    .catch(() => {});
+}
+
 function configureAccountSession(account) {
   if (!account.partition || configuredSessionPartitions.has(account.partition)) {
     return;
@@ -644,7 +957,13 @@ function isAllowedWebMessengerPermission(permission) {
     "notifications",
     "media",
     "fullscreen",
-    "clipboard-sanitized-write"
+    "clipboard-sanitized-write",
+    // Право «не удаляй мои данные». Без него IndexedDB мессенджеров считается
+    // расходной и вычищается при нехватке квоты — со всеми сессиями сразу.
+    "persistent-storage",
+    // Нужен service worker'ам мессенджеров, чтобы доставить сообщения,
+    // накопившиеся, пока связи не было.
+    "background-sync"
   ].includes(permission);
 }
 
@@ -819,7 +1138,7 @@ function createApplicationMenu() {
         {
           label: "Quick Switch...",
           accelerator: "CommandOrControl+K",
-          click: () => windowRef?.webContents.send("command:open")
+          click: () => sendToRenderer("command:open")
         },
         { type: "separator" },
         {
@@ -896,7 +1215,7 @@ function requestRendererLock() {
 
   isInterfaceLocked = true;
   layoutActiveView();
-  windowRef.webContents.send("security:lock");
+  sendToRenderer("security:lock");
 }
 
 function normalizePin(pin) {
@@ -945,26 +1264,60 @@ async function clearAccountSession(partition) {
   await accountSession.clearCache();
 }
 
-app.whenReady().then(() => {
-  createWindow();
-  createApplicationMenu();
-});
-
-app.on("before-quit", () => {
-  isQuitting = true;
-  globalShortcut.unregisterAll();
-});
-
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
-});
-
-app.on("activate", () => {
-  if (windowRef) {
+// Два экземпляра на одном профиле — это два процесса, пишущих в одни и те же базы
+// Chromium. Так они повреждаются, и разлогинивает уже по-настоящему и навсегда.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
     showMainWindow();
-  } else {
+  });
+
+  app.whenReady().then(() => {
     createWindow();
-  }
-});
+    createApplicationMenu();
+
+    // После пробуждения Mac сокеты мертвы, а страницы об этом ещё не знают.
+    powerMonitor.on("resume", () => retryOfflineAccounts("system resumed"));
+    powerMonitor.on("unlock-screen", () => retryOfflineAccounts("screen unlocked"));
+  });
+
+  app.on("before-quit", (event) => {
+    isQuitting = true;
+    globalShortcut.unregisterAll();
+    clearInterval(storageFlushTimer);
+    clearInterval(onlineWatchTimer);
+    pendingLoadTimers.forEach(clearTimeout);
+    pendingLoadTimers.clear();
+    retryTimers.forEach(clearTimeout);
+    retryTimers.clear();
+
+    if (isFlushingBeforeQuit) {
+      return;
+    }
+
+    // Откладываем выход, пока Chromium не допишет куки и localStorage на диск.
+    // Ограничение по времени обязательно: приложение должно закрыться в любом случае.
+    event.preventDefault();
+    isFlushingBeforeQuit = true;
+
+    Promise.race([
+      flushAllSessions(),
+      new Promise((resolve) => setTimeout(resolve, 3000))
+    ]).finally(() => app.quit());
+  });
+
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") {
+      app.quit();
+    }
+  });
+
+  app.on("activate", () => {
+    if (windowRef) {
+      showMainWindow();
+    } else {
+      createWindow();
+    }
+  });
+}

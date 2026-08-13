@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const { readJsonWithFallback, writeJsonAtomically } = require("./jsonStore.cjs");
 
 const projectRoot = path.resolve(__dirname, "../..");
 const fallbackDataDir = path.join(projectRoot, "data");
@@ -36,15 +37,20 @@ function loadSettings() {
     return { ...defaultSettings };
   }
 
+  const stored = readJsonWithFallback(settingsPath, {
+    isValid: (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value),
+    fallback: {}
+  });
+
   return {
     ...defaultSettings,
-    ...JSON.parse(fs.readFileSync(settingsPath, "utf8"))
+    ...stored
   };
 }
 
 function saveSettings(settings) {
   fs.mkdirSync(getDataDir(), { recursive: true });
-  fs.writeFileSync(getSettingsPath(), JSON.stringify(settings, null, 2));
+  writeJsonAtomically(getSettingsPath(), settings);
 }
 
 function updateSettings(patch) {

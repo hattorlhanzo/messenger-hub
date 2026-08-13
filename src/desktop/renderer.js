@@ -59,6 +59,7 @@ const lockError = document.getElementById("lockError");
 let accounts = [];
 let activeAccountId;
 let unreadCounts = {};
+let accountStatuses = {};
 let settings = {};
 let currentSettingsPath = "";
 let currentGlobalShortcut = {};
@@ -127,17 +128,25 @@ function renderAccounts() {
 
   accountList.replaceChildren(
     ...accounts.map((account) => {
+      const status = accountStatuses[account.id] || "ready";
       const row = document.createElement("div");
-      row.className = `account ${account.platform}${account.id === activeAccountId ? " active" : ""}`;
+      row.className = `account ${account.platform} status-${status}${account.id === activeAccountId ? " active" : ""}`;
       row.role = "button";
       row.tabIndex = 0;
       row.draggable = true;
       row.dataset.accountId = account.id;
-      row.title = "Перетащите, чтобы изменить порядок";
+      row.title = statusNote(account.id) || "Перетащите, чтобы изменить порядок";
 
       const icon = document.createElement("div");
       icon.className = "accountIcon";
       icon.append(createPlatformIcon(account.platform));
+
+      // В компактном режиме подпись под названием скрыта, поэтому состояние
+      // дублируется точкой на иконке — её видно всегда.
+      const statusDot = document.createElement("span");
+      statusDot.className = "statusDot";
+      statusDot.setAttribute("aria-hidden", "true");
+      icon.append(statusDot);
 
       const text = document.createElement("div");
       text.className = "accountText";
@@ -478,6 +487,11 @@ function menuAccount() {
 }
 
 function accountSubtitle(account) {
+  const status = statusNote(account.id);
+  if (status) {
+    return status;
+  }
+
   if (account.platform === "whatsapp") {
     return account.phone || "номер не задан";
   }
@@ -485,11 +499,23 @@ function accountSubtitle(account) {
   return account.platform;
 }
 
+// Пока страница не поднялась, показываем именно это, а не номер телефона:
+// «нет связи» и «выкинуло из аккаунта» со стороны выглядят одинаково,
+// и различить их — половина решения проблемы.
+function statusNote(accountId) {
+  const status = accountStatuses[accountId];
+  if (status === "offline") return "нет связи, переподключаюсь";
+  if (status === "loading") return "загружается…";
+  if (status === "idle") return "в очереди на загрузку";
+  return "";
+}
+
 async function init() {
   const state = await window.messengerShell.getAccounts();
   accounts = state.accounts;
   activeAccountId = state.activeAccountId;
   unreadCounts = state.unreadCounts || {};
+  accountStatuses = state.accountStatuses || {};
   settings = state.settings || {};
   currentSettingsPath = state.settingsPath || "";
   currentGlobalShortcut = state.globalShortcut || {};
@@ -513,6 +539,7 @@ window.messengerShell.onAccountListChanged((state) => {
   accounts = state.accounts;
   activeAccountId = state.activeAccountId;
   unreadCounts = state.unreadCounts || {};
+  accountStatuses = state.accountStatuses || {};
   settings = state.settings || settings;
   currentSettingsPath = state.settingsPath || currentSettingsPath;
   currentGlobalShortcut = state.globalShortcut || currentGlobalShortcut;

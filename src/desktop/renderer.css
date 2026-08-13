@@ -331,6 +331,52 @@ body.compactMode .unreadBadge {
   display: none;
 }
 
+/* Индикатор состояния страницы аккаунта. У готового аккаунта его не видно,
+   поэтому обычный вид списка не меняется. */
+.statusDot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #f8f6ef;
+  border-radius: 999px;
+  background: transparent;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.account.status-loading .statusDot,
+.account.status-idle .statusDot {
+  background: #c08a2e;
+  opacity: 1;
+}
+
+.account.status-offline .statusDot {
+  background: #b3402f;
+  opacity: 1;
+}
+
+.account.status-offline .accountText span {
+  color: #b3402f;
+}
+
+.account.status-offline .statusDot {
+  animation: statusPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account.status-offline .statusDot {
+    animation: none;
+  }
+}
+
 .accountMenu {
   position: fixed;
   left: 14px;
