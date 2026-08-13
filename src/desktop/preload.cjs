@@ -4,7 +4,9 @@ contextBridge.exposeInMainWorld("messengerShell", {
   getAccounts: () => ipcRenderer.invoke("accounts:list"),
   addAccount: (input) => ipcRenderer.invoke("accounts:add", input),
   updateAccount: (id, patch) => ipcRenderer.invoke("accounts:update", id, patch),
-  removeAccount: (id, options) => ipcRenderer.invoke("accounts:remove", id, options),
+  openAccountMenu: (id) => ipcRenderer.invoke("accounts:menu", id),
+  requestRemoveAccount: (id, options) =>
+    ipcRenderer.invoke("accounts:request-remove", id, options),
   reorderAccounts: (ids) => ipcRenderer.invoke("accounts:reorder", ids),
   updateSettings: (patch) => ipcRenderer.invoke("settings:update", patch),
   showSettingsFile: () => ipcRenderer.invoke("settings:show-file"),
@@ -37,6 +39,11 @@ contextBridge.exposeInMainWorld("messengerShell", {
     const listener = () => callback();
     ipcRenderer.on("command:open", listener);
     return () => ipcRenderer.off("command:open", listener);
+  },
+  onAccountEditRequested: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("accounts:edit", listener);
+    return () => ipcRenderer.off("accounts:edit", listener);
   },
   onSecurityLock: (callback) => {
     const listener = () => callback();

@@ -377,41 +377,6 @@ body.compactMode .unreadBadge {
   }
 }
 
-.accountMenu {
-  position: fixed;
-  left: 14px;
-  z-index: 30;
-  display: grid;
-  width: 220px;
-  padding: 6px;
-  border: 1px solid #d8d6cc;
-  border-radius: 8px;
-  background: #fffdf8;
-  box-shadow: 0 12px 30px rgba(23, 32, 27, 0.16);
-}
-
-.accountMenu[hidden] {
-  display: none;
-}
-
-.accountMenu button {
-  width: 100%;
-  min-height: 32px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 6px;
-  color: #17201b;
-  font-size: 12px;
-  font-weight: 700;
-  text-align: left;
-  background: transparent;
-  cursor: pointer;
-}
-
-.accountMenu button:hover {
-  background: #f1eee5;
-}
-
 .toolbar {
   position: fixed;
   inset: 76px 0 auto 0;

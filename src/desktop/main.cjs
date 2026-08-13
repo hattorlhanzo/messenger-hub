@@ -3,6 +3,7 @@ const crypto = require("node:crypto");
 const {
   app,
   BrowserWindow,
+  dialog,
   WebContentsView,
   globalShortcut,
   ipcMain,
@@ -503,7 +504,99 @@ ipcMain.handle("accounts:update", (_event, id, patch) => {
   return payload;
 });
 
-ipcMain.handle("accounts:remove", async (_event, id, options = {}) => {
+// Меню аккаунта нативное: раскрывается поверх вкладки мессенджера и не требует
+// прятать её, как это было с меню, свёрстанным на странице оболочки.
+ipcMain.handle("accounts:menu", (_event, id) => {
+  const account = webAccounts.find((item) => item.id === id);
+
+  if (!account || !windowRef) {
+    return { ok: false };
+  }
+
+  Menu.buildFromTemplate([
+    {
+      label: "Редактировать",
+      click: () => sendToRenderer("accounts:edit", { accountId: account.id })
+    },
+    { type: "separator" },
+    {
+      label: "Удалить",
+      click: () => void confirmRemoveAccount(account, false)
+    },
+    {
+      label: "Удалить и очистить вход",
+      click: () => void confirmRemoveAccount(account, true)
+    }
+  ]).popup({ window: windowRef });
+
+  return { ok: true };
+});
+
+ipcMain.handle("accounts:request-remove", (_event, id, options = {}) => {
+  const account = webAccounts.find((item) => item.id === id);
+
+  if (!account) {
+    return { ok: false };
+  }
+
+  void confirmRemoveAccount(account, Boolean(options.clearSession));
+  return { ok: true };
+});
+
+// Подтверждение спрашивается здесь, а не на странице оболочки. Раньше оно
+// висело на window.prompt, а его Electron не поддерживает: вызов бросал
+// исключение сразу после согласия пользователя, и аккаунт молча не удалялся.
+async function confirmRemoveAccount(account, clearSession) {
+  if (!windowRef) {
+    return;
+  }
+
+  const confirmed = await askToRemove({
+    title: "Удаление аккаунта",
+    message: `Удалить «${account.label}»?`,
+    detail: clearSession
+      ? "Сессия входа будет очищена. Чтобы вернуться в этот аккаунт, понадобится войти заново с телефона."
+      : "Сессия входа останется на диске, и аккаунт можно будет добавить обратно без повторного входа.",
+    confirmLabel: clearSession ? "Удалить и очистить" : "Удалить"
+  });
+
+  if (!confirmed) {
+    return;
+  }
+
+  // Очистка входа необратима, поэтому спрашиваем второй раз. Раньше вместо
+  // этого предлагалось напечатать название аккаунта вручную.
+  if (clearSession) {
+    const confirmedAgain = await askToRemove({
+      title: "Очистка входа",
+      message: `Точно очистить вход для «${account.label}»?`,
+      detail: "Отменить это будет нельзя: код придётся сканировать заново с телефона.",
+      confirmLabel: "Да, очистить вход"
+    });
+
+    if (!confirmedAgain) {
+      return;
+    }
+  }
+
+  await removeAccountById(account.id, { clearSession });
+}
+
+async function askToRemove({ title, message, detail, confirmLabel }) {
+  const { response } = await dialog.showMessageBox(windowRef, {
+    type: "warning",
+    buttons: ["Отмена", confirmLabel],
+    defaultId: 0,
+    cancelId: 0,
+    title,
+    message,
+    detail
+  });
+
+  return response === 1;
+}
+
+async function removeAccountById(id, options = {}) {
   const account = webAccounts.find((item) => item.id === id);
   const view = views.get(id);
   const win = windowRef;
@@ -534,15 +627,7 @@ ipcMain.handle("accounts:remove", async (_event, id, options = {}) => {
   } else {
     broadcastAccountState();
   }
-
-  return {
-    accounts: webAccounts,
-    activeAccountId,
-    unreadCounts: Object.fromEntries(unreadCounts),
-    settings: appSettings,
-    appVersion: app.getVersion()
-  };
-});
+}
 
 ipcMain.handle("accounts:select", (_event, id) => {
   selectAccount(id);

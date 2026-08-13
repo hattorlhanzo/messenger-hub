@@ -8,10 +8,6 @@ const reloadButton = document.getElementById("reloadButton");
 const devtoolsButton = document.getElementById("devtoolsButton");
 const addButton = document.getElementById("addButton");
 const settingsButton = document.getElementById("settingsButton");
-const accountMenu = document.getElementById("accountMenu");
-const editAccountButton = document.getElementById("editAccountButton");
-const deleteAccountButton = document.getElementById("deleteAccountButton");
-const clearDeleteAccountButton = document.getElementById("clearDeleteAccountButton");
 const modalBackdrop = document.getElementById("modalBackdrop");
 const addForm = document.getElementById("addForm");
 const cancelButton = document.getElementById("cancelButton");
@@ -67,7 +63,6 @@ let currentGlobalShortcut = {};
 let currentPlatform = "";
 let currentUpdateStatus = {};
 let appVersion = "";
-let menuAccountId;
 let editingAccountId;
 let draggedAccountId;
 let didDragAccount = false;
@@ -86,8 +81,7 @@ function isOverlayOpen() {
     settingsBackdrop,
     modalBackdrop,
     editBackdrop,
-    onboardingBackdrop,
-    accountMenu
+    onboardingBackdrop
   ].some((element) => !element.hidden);
 }
 
@@ -161,7 +155,7 @@ function renderAccounts() {
       more.textContent = "⋯";
       more.addEventListener("click", (event) => {
         event.stopPropagation();
-        toggleAccountMenu(account, more);
+        openAccountMenu(account);
       });
 
       const unread = unreadCounts[account.id] || 0;
@@ -176,13 +170,11 @@ function renderAccounts() {
           didDragAccount = false;
           return;
         }
-        closeAccountMenu();
         void window.messengerShell.selectAccount(account.id);
       });
       row.addEventListener("keydown", (event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          closeAccountMenu();
           void window.messengerShell.selectAccount(account.id);
         }
       });
@@ -229,7 +221,6 @@ function renderAccounts() {
 }
 
 function openCommandPalette() {
-  closeAccountMenu();
   closeModal();
   closeSettings();
   closeEdit();
@@ -456,32 +447,8 @@ function editAccount(account) {
   editLabelInput.select();
 }
 
-function toggleAccountMenu(account, anchor) {
-  if (!accountMenu.hidden && menuAccountId === account.id) {
-    closeAccountMenu();
-    return;
-  }
-
-  menuAccountId = account.id;
-  const rect = anchor.getBoundingClientRect();
-  const menuWidth = 220;
-  accountMenu.style.top = `${Math.round(rect.bottom + 8)}px`;
-  accountMenu.style.left = `${Math.min(
-    window.innerWidth - menuWidth - 8,
-    Math.max(8, Math.round(rect.right - menuWidth))
-  )}px`;
-  accountMenu.hidden = false;
-  syncOverlay();
-}
-
-function closeAccountMenu() {
-  accountMenu.hidden = true;
-  menuAccountId = undefined;
-  syncOverlay();
-}
-
-function menuAccount() {
-  return accounts.find((account) => account.id === menuAccountId);
+function openAccountMenu(account) {
+  void window.messengerShell.openAccountMenu(account.id);
 }
 
 function accountSubtitle(account) {
@@ -564,6 +531,13 @@ window.messengerShell.onCommandOpen(() => {
   openCommandPalette();
 });
 
+window.messengerShell.onAccountEditRequested(({ accountId }) => {
+  const account = accounts.find((item) => item.id === accountId);
+  if (account) {
+    editAccount(account);
+  }
+});
+
 window.messengerShell.onSecurityLock(() => {
   showLock();
 });
@@ -584,12 +558,6 @@ devtoolsButton.addEventListener("click", () => {
   void window.messengerShell.openDevTools();
 });
 
-document.addEventListener("click", (event) => {
-  if (!accountMenu.hidden && !accountMenu.contains(event.target)) {
-    closeAccountMenu();
-  }
-});
-
 document.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
@@ -602,7 +570,6 @@ document.addEventListener("keydown", (event) => {
   }
 
   if (!commandBackdrop.hidden) closeCommandPalette();
-  closeAccountMenu();
   if (!modalBackdrop.hidden) closeModal();
   if (!settingsBackdrop.hidden) closeSettings();
   if (!editBackdrop.hidden) closeEdit();
@@ -646,14 +613,6 @@ commandBackdrop.addEventListener("click", (event) => {
   }
 });
 
-editAccountButton.addEventListener("click", async () => {
-  const account = menuAccount();
-  closeAccountMenu();
-  if (account) {
-    editAccount(account);
-  }
-});
-
 managementAccounts.addEventListener("click", async (event) => {
   const button = event.target.closest("button[data-action]");
   const row = event.target.closest(".managementAccount");
@@ -685,12 +644,12 @@ managementAccounts.addEventListener("click", async (event) => {
   }
 
   if (action === "clear") {
-    await removeAccountWithConfirm(account, true);
+    await window.messengerShell.requestRemoveAccount(account.id, { clearSession: true });
     return;
   }
 
   if (action === "delete") {
-    await removeAccountWithConfirm(account, false);
+    await window.messengerShell.requestRemoveAccount(account.id, { clearSession: false });
   }
 });
 
@@ -725,24 +684,11 @@ editForm.addEventListener("submit", async (event) => {
   closeEdit();
 });
 
-deleteAccountButton.addEventListener("click", async () => {
-  const account = menuAccount();
-  closeAccountMenu();
-  await removeAccountWithConfirm(account, false);
-});
-
-clearDeleteAccountButton.addEventListener("click", async () => {
-  const account = menuAccount();
-  closeAccountMenu();
-  await removeAccountWithConfirm(account, true);
-});
-
 addButton.addEventListener("click", () => {
   openAddMessenger();
 });
 
 settingsButton.addEventListener("click", () => {
-  closeAccountMenu();
   renderSettingsForm();
   settingsBackdrop.hidden = false;
   syncOverlay();
@@ -939,7 +885,6 @@ function maybeOpenOnboarding() {
     return;
   }
 
-  closeAccountMenu();
   onboardingNameInput.value = settings.operatorName || "";
   onboardingBackdrop.hidden = false;
   syncOverlay();
@@ -947,7 +892,6 @@ function maybeOpenOnboarding() {
 }
 
 function openAddMessenger() {
-  closeAccountMenu();
   modalBackdrop.hidden = false;
   updatePhoneField();
   syncOverlay();
@@ -983,7 +927,6 @@ function showLock() {
 
   isLocked = true;
   clearTimeout(lockTimer);
-  closeAccountMenu();
   closeCommandPalette();
   closeModal();
   closeSettings();
@@ -1051,36 +994,6 @@ function updatePhoneField() {
   phoneField.hidden = !isWhatsApp;
   if (!isWhatsApp) {
     phoneInput.value = "";
-  }
-}
-
-async function removeAccountWithConfirm(account, clearSession) {
-  if (!account) return;
-
-  const message = clearSession
-    ? `Удалить ${account.label} и очистить его web-сессию?\n\nПосле этого нужно будет входить заново.`
-    : `Удалить ${account.label}? Сессия входа сохранится.`;
-
-  if (!window.confirm(message)) {
-    return;
-  }
-
-  const typedLabel = window.prompt(`Для подтверждения введите название аккаунта:\n${account.label}`);
-  if (typedLabel !== account.label) {
-    window.alert("Удаление отменено: название введено не полностью.");
-    return;
-  }
-
-  const state = await window.messengerShell.removeAccount(account.id, {
-    clearSession
-  });
-  accounts = state.accounts;
-  activeAccountId = state.activeAccountId;
-  unreadCounts = state.unreadCounts || {};
-  settings = state.settings || settings;
-  renderAccounts();
-  if (!settingsBackdrop.hidden) {
-    renderSettingsForm();
   }
 }
 
