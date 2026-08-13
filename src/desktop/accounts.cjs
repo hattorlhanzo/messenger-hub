@@ -1,3 +1,4 @@
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const { readJsonWithFallback, writeJsonAtomically } = require("./jsonStore.cjs");
@@ -120,16 +121,31 @@ function reorderAccounts(ids) {
   return nextAccounts;
 }
 
+// Идентификатор задаёт имя папки с сессией, поэтому переиспользовать его нельзя.
+// Раньше номера выдавались по порядку и занимали первый свободный: удалив wa_1
+// и добавив новый WhatsApp, пользователь получал wa_1 обратно — вместе с чужой
+// сессией входа, которая осталась на диске.
 function nextAccountId(accounts, platform) {
   const prefix =
     platform === "whatsapp" ? "wa" : platform === "telegram" ? "tg" : "instagram";
-  let index = 1;
 
-  while (accounts.some((account) => account.id === `${prefix}_${index}`)) {
-    index += 1;
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const id = `${prefix}_${crypto.randomBytes(3).toString("hex")}`;
+    if (!isAccountIdTaken(accounts, id)) {
+      return id;
+    }
   }
 
-  return `${prefix}_${index}`;
+  return `${prefix}_${Date.now().toString(36)}`;
+}
+
+function isAccountIdTaken(accounts, id) {
+  if (accounts.some((account) => account.id === id)) {
+    return true;
+  }
+
+  // Папка сессии удалённого аккаунта остаётся на диске, если её не очищали явно.
+  return fs.existsSync(path.join(getDataDir(), "Partitions", id));
 }
 
 function getDataDir() {

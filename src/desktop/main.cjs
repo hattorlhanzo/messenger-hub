@@ -25,6 +25,7 @@ const { getSettingsPath, loadSettings, updateSettings } = require("./settings.cj
 const { createTray, destroyTray, updateTray } = require("./tray.cjs");
 const { checkForUpdates, getUpdateStatus, setStatusListener } = require("./updater.cjs");
 const { chooseGlobalShortcut, defaultGlobalShortcut } = require("./shortcuts.cjs");
+const { canOpenExternally, isAllowedInsideView } = require("./navigation.cjs");
 
 // Папку профиля Electron по умолчанию выводит из поля name в package.json. Любое
 // переименование пакета увело бы приложение на пустой профиль — со стороны это
@@ -184,6 +185,7 @@ function createAccountView(account, { load = true } = {}) {
   const view = new BrowserView({
     webPreferences: {
       partition: account.partition,
+      preload: path.join(__dirname, "accountPreload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true
@@ -191,17 +193,34 @@ function createAccountView(account, { load = true } = {}) {
   });
 
   view.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    if (canOpenExternally(url)) {
+      void shell.openExternal(url);
+    } else {
+      console.info(`Blocked window.open with unsupported scheme: ${url}`);
+    }
+
     return { action: "deny" };
+  });
+
+  // Вкладка должна оставаться на сайте своего мессенджера. Уход на посторонний
+  // сайт внутри оболочки приложения — удобная площадка для поддельной формы входа,
+  // поэтому такие переходы отправляем в системный браузер.
+  view.webContents.on("will-navigate", (event, url) => {
+    if (isAllowedInsideView(url, account.url)) {
+      return;
+    }
+
+    event.preventDefault();
+    console.info(`Navigation to ${url} moved out to the system browser`);
+
+    if (canOpenExternally(url)) {
+      void shell.openExternal(url);
+    }
   });
 
   view.webContents.setUserAgent(account.userAgent);
   view.webContents.on("did-navigate", () => sendNavigationState());
   view.webContents.on("did-navigate-in-page", () => sendNavigationState());
-  view.webContents.on("dom-ready", () => installNotificationBridge(view));
-  view.webContents.on("console-message", (details) => {
-    handleNotificationBridgeMessage(account, details.message);
-  });
   view.webContents.on("page-title-updated", () => updateAccountTitleState(account));
   view.webContents.on("did-finish-load", () => {
     // Chromium присылает did-finish-load и когда показал свою страницу ошибки.
@@ -211,7 +230,6 @@ function createAccountView(account, { load = true } = {}) {
       return;
     }
 
-    installNotificationBridge(view);
     requestPersistentStorage(view, account);
     markAccountReady(account);
     updateAccountTitleState(account);
@@ -1023,99 +1041,29 @@ function isAllowedWebMessengerPermission(permission) {
   ].includes(permission);
 }
 
-function installNotificationBridge(view) {
-  if (!view || view.webContents.isDestroyed()) {
+// Уведомление пришло из вкладки аккаунта по выделенному каналу. Отправителя
+// определяем по самой вкладке: сообщение больше нельзя подделать записью
+// в консоль, и посторонние логи страниц сюда не попадают.
+ipcMain.on("account:notification", (event, payload) => {
+  const account = accountForWebContents(event.sender);
+  if (!account) {
     return;
   }
 
-  view.webContents
-    .executeJavaScript(notificationBridgeScript(), false)
-    .catch(() => {});
-}
+  showMessagePreviewNotification(account, {
+    title: String(payload?.title || ""),
+    body: String(payload?.body || "")
+  });
+});
 
-function notificationBridgeScript() {
-  return `
-    (() => {
-      if (window.__messengerHubNotificationBridgeInstalled) return;
-      window.__messengerHubNotificationBridgeInstalled = true;
-
-      const PREFIX = "__MESSENGER_HUB_NOTIFICATION__";
-      const OriginalNotification = window.Notification;
-
-      function emitNotification(title, options = {}) {
-        try {
-          console.info(PREFIX + JSON.stringify({
-            title: String(title || ""),
-            body: String(options.body || ""),
-            tag: String(options.tag || ""),
-            icon: String(options.icon || "")
-          }));
-        } catch (_) {}
-      }
-
-      function HubNotification(title, options = {}) {
-        emitNotification(title, options);
-        const target = document.createDocumentFragment();
-        const notification = {
-          title: String(title || ""),
-          body: String(options.body || ""),
-          tag: String(options.tag || ""),
-          icon: String(options.icon || ""),
-          dir: options.dir || "auto",
-          lang: options.lang || "",
-          data: options.data,
-          onclick: null,
-          onclose: null,
-          onerror: null,
-          onshow: null,
-          close() {
-            if (typeof notification.onclose === "function") {
-              notification.onclose({ target: notification });
-            }
-          },
-          addEventListener: target.addEventListener.bind(target),
-          removeEventListener: target.removeEventListener.bind(target),
-          dispatchEvent: target.dispatchEvent.bind(target)
-        };
-        setTimeout(() => {
-          if (typeof notification.onshow === "function") {
-            notification.onshow({ target: notification });
-          }
-        }, 0);
-        return notification;
-      }
-
-      Object.defineProperty(HubNotification, "permission", {
-        get() {
-          return "granted";
-        }
-      });
-      HubNotification.requestPermission = (callback) => {
-        if (typeof callback === "function") callback("granted");
-        return Promise.resolve("granted");
-      };
-
-      if (OriginalNotification) {
-        HubNotification.prototype = OriginalNotification.prototype;
-      }
-
-      window.Notification = HubNotification;
-    })();
-  `;
-}
-
-function handleNotificationBridgeMessage(account, message) {
-  const prefix = "__MESSENGER_HUB_NOTIFICATION__";
-  if (typeof message !== "string" || !message.startsWith(prefix)) {
-    return;
+function accountForWebContents(sender) {
+  for (const [accountId, view] of views) {
+    if (!view.webContents.isDestroyed() && view.webContents.id === sender.id) {
+      return webAccounts.find((account) => account.id === accountId);
+    }
   }
 
-  try {
-    const preview = JSON.parse(message.slice(prefix.length));
-    showMessagePreviewNotification(account, preview);
-  } catch {
-    // Ignore malformed page messages.
-  }
+  return undefined;
 }
 
 function showMainWindow() {
