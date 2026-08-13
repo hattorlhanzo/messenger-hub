@@ -27,6 +27,7 @@ const { createTray, destroyTray, updateTray } = require("./tray.cjs");
 const { checkForUpdates, getUpdateStatus, setStatusListener } = require("./updater.cjs");
 const { chooseGlobalShortcut, defaultGlobalShortcut } = require("./shortcuts.cjs");
 const { canOpenExternally, isAllowedInsideView } = require("./navigation.cjs");
+const { getLogFilePath, initLogger, logFromRenderer } = require("./logger.cjs");
 
 // Папку профиля Electron по умолчанию выводит из поля name в package.json. Любое
 // переименование пакета увело бы приложение на пустой профиль — со стороны это
@@ -38,6 +39,23 @@ app.setPath(
   process.env.MESSENGER_HUB_PROFILE_DIR ||
     path.join(app.getPath("appData"), "all-in-one-messengers")
 );
+
+initLogger(app.getPath("userData"), {
+  version: app.getVersion(),
+  platform: process.platform,
+  arch: process.arch,
+  electron: process.versions.electron
+});
+
+// Без этого падение в главном процессе не оставляет следа вообще: окно просто
+// исчезает, и понять причину на чужой машине невозможно.
+process.on("uncaughtException", (error) => {
+  console.error("Необработанная ошибка:", error);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("Необработанный отказ промиса:", reason);
+});
 
 const regularTopbarHeight = 76;
 const regularToolbarHeight = 52;
@@ -693,6 +711,18 @@ ipcMain.handle("security:verify-pin", (_event, pin) => {
     layoutActiveView();
   }
   return { ok, settings: appSettings };
+});
+
+ipcMain.handle("logs:show", () => {
+  const target = getLogFilePath();
+  if (target) {
+    shell.showItemInFolder(target);
+  }
+  return { ok: Boolean(target) };
+});
+
+ipcMain.on("log:renderer", (_event, level, text) => {
+  logFromRenderer(level, String(text || "").slice(0, 2000));
 });
 
 ipcMain.handle("settings:show-file", () => {

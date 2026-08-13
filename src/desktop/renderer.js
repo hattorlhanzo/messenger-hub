@@ -36,6 +36,7 @@ const settingsPath = document.getElementById("settingsPath");
 const appVersionText = document.getElementById("appVersionText");
 const updateStatusText = document.getElementById("updateStatusText");
 const openSettingsFileButton = document.getElementById("openSettingsFileButton");
+const openLogsButton = document.getElementById("openLogsButton");
 const editBackdrop = document.getElementById("editBackdrop");
 const editForm = document.getElementById("editForm");
 const editLabelInput = document.getElementById("editLabelInput");
@@ -701,6 +702,23 @@ settingsCancelButton.addEventListener("click", () => {
 
 openSettingsFileButton.addEventListener("click", () => {
   void window.messengerShell.showSettingsFile();
+});
+
+openLogsButton.addEventListener("click", () => {
+  void window.messengerShell.showLogs();
+});
+
+// Ошибки страницы оболочки живут в отдельном процессе и в файл сами не попадут.
+// Без этого падение интерфейса выглядело бы как «просто перестало работать».
+window.addEventListener("error", (event) => {
+  window.messengerShell.reportError(
+    "ERROR",
+    `${event.message} (${event.filename}:${event.lineno})`
+  );
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  window.messengerShell.reportError("ERROR", `необработанный отказ: ${event.reason}`);
 });
 
 settingsBackdrop.addEventListener("click", (event) => {

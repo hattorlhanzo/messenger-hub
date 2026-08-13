@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld("messengerShell", {
   reorderAccounts: (ids) => ipcRenderer.invoke("accounts:reorder", ids),
   updateSettings: (patch) => ipcRenderer.invoke("settings:update", patch),
   showSettingsFile: () => ipcRenderer.invoke("settings:show-file"),
+  showLogs: () => ipcRenderer.invoke("logs:show"),
+  reportError: (level, text) => ipcRenderer.send("log:renderer", level, text),
   selectAccount: (id) => ipcRenderer.invoke("accounts:select", id),
   reload: () => ipcRenderer.invoke("view:reload"),
   goBack: () => ipcRenderer.invoke("view:back"),
