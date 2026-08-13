@@ -3,7 +3,7 @@ const crypto = require("node:crypto");
 const {
   app,
   BrowserWindow,
-  BrowserView,
+  WebContentsView,
   globalShortcut,
   ipcMain,
   Menu,
@@ -182,7 +182,7 @@ function createAccountView(account, { load = true } = {}) {
 
   configureAccountSession(account);
 
-  const view = new BrowserView({
+  const view = new WebContentsView({
     webPreferences: {
       partition: account.partition,
       preload: path.join(__dirname, "accountPreload.cjs"),
@@ -338,7 +338,7 @@ function selectAccount(accountId = activeAccountId) {
 
   const currentView = views.get(activeAccountId);
   if (currentView && currentView !== nextView) {
-    win.removeBrowserView(currentView);
+    win.contentView.removeChildView(currentView);
   }
 
   activeAccountId = accountId;
@@ -353,7 +353,7 @@ function selectAccount(accountId = activeAccountId) {
     }
   }
 
-  win.addBrowserView(nextView);
+  win.contentView.addChildView(nextView);
   layoutActiveView();
   createApplicationMenu();
   sendToRenderer("accounts:changed", { activeAccountId });
@@ -385,12 +385,6 @@ function layoutActiveView() {
     y: reservedHeight,
     width: Math.max(320, bounds.width),
     height: Math.max(240, bounds.height - reservedHeight)
-  });
-  view.setAutoResize({
-    width: true,
-    height: true,
-    horizontal: false,
-    vertical: false
   });
 }
 
@@ -513,7 +507,7 @@ ipcMain.handle("accounts:remove", async (_event, id, options = {}) => {
   const win = windowRef;
 
   if (view && win) {
-    win.removeBrowserView(view);
+    win.contentView.removeChildView(view);
     view.webContents.close();
     views.delete(id);
   }
