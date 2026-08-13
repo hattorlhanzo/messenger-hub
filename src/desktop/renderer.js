@@ -38,6 +38,7 @@ const pinInput = document.getElementById("pinInput");
 const pinStatus = document.getElementById("pinStatus");
 const settingsPath = document.getElementById("settingsPath");
 const appVersionText = document.getElementById("appVersionText");
+const updateStatusText = document.getElementById("updateStatusText");
 const openSettingsFileButton = document.getElementById("openSettingsFileButton");
 const editBackdrop = document.getElementById("editBackdrop");
 const editForm = document.getElementById("editForm");
@@ -63,6 +64,8 @@ let accountStatuses = {};
 let settings = {};
 let currentSettingsPath = "";
 let currentGlobalShortcut = {};
+let currentPlatform = "";
+let currentUpdateStatus = {};
 let appVersion = "";
 let menuAccountId;
 let editingAccountId;
@@ -519,6 +522,8 @@ async function init() {
   settings = state.settings || {};
   currentSettingsPath = state.settingsPath || "";
   currentGlobalShortcut = state.globalShortcut || {};
+  currentPlatform = state.platform || currentPlatform;
+  currentUpdateStatus = state.updateStatus || {};
   appVersion = state.appVersion || "";
   devtoolsButton.hidden = !state.isDevToolsEnabled;
   applySettingsMode();
@@ -543,10 +548,13 @@ window.messengerShell.onAccountListChanged((state) => {
   settings = state.settings || settings;
   currentSettingsPath = state.settingsPath || currentSettingsPath;
   currentGlobalShortcut = state.globalShortcut || currentGlobalShortcut;
+  currentPlatform = state.platform || currentPlatform;
+  currentUpdateStatus = state.updateStatus || currentUpdateStatus;
   appVersion = state.appVersion || appVersion;
   devtoolsButton.hidden = !state.isDevToolsEnabled;
   applySettingsMode();
   renderAccounts();
+  updateStatusText.textContent = currentUpdateStatus.message || "";
   setupIdleLock();
 });
 
@@ -916,6 +924,7 @@ function renderSettingsForm() {
   renderGlobalShortcutStatus();
   settingsPath.textContent = currentSettingsPath ? `Файл: ${currentSettingsPath}` : "";
   appVersionText.textContent = appVersion ? `Версия: ${appVersion}` : "";
+  updateStatusText.textContent = currentUpdateStatus.message || "";
   renderManagementAccounts();
 }
 
@@ -1003,19 +1012,31 @@ function hideLock() {
 
 function renderGlobalShortcutStatus() {
   const accelerator = currentGlobalShortcut.accelerator || settings.globalShortcut || "Alt+Space";
+  const requested = currentGlobalShortcut.requested || accelerator;
 
   if (settings.globalShortcutEnabled === false) {
     globalShortcutStatus.textContent = "Глобальная горячая клавиша выключена";
     return;
   }
 
-  globalShortcutStatus.textContent = currentGlobalShortcut.registered
-    ? `Глобальная горячая клавиша активна: ${formatAccelerator(accelerator)}`
-    : `${formatAccelerator(accelerator)} не зарегистрировалась. Возможно, сочетание занято.`;
+  if (!currentGlobalShortcut.registered) {
+    globalShortcutStatus.textContent = `Ни одно сочетание не удалось занять, включая ${formatAccelerator(requested)}. Похоже, все они уже заняты другими программами.`;
+    return;
+  }
+
+  // Запрошенное сочетание могло оказаться занятым — тогда сработало запасное,
+  // и об этом нужно сказать прямо, иначе клавиша «не работает» без объяснений.
+  globalShortcutStatus.textContent =
+    accelerator === requested
+      ? `Глобальная горячая клавиша активна: ${formatAccelerator(accelerator)}`
+      : `${formatAccelerator(requested)} занято другой программой, включено ${formatAccelerator(accelerator)}`;
 }
 
 function formatAccelerator(accelerator) {
-  return String(accelerator).replace("Alt", "Option").replace(/\+/g, "+");
+  // Option — название клавиши только на Mac; на Windows она называется Alt.
+  return currentPlatform === "darwin"
+    ? String(accelerator).replace("Alt", "Option")
+    : String(accelerator);
 }
 
 function closeSettings() {

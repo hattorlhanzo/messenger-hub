@@ -22,6 +22,9 @@ const {
   updateAccount
 } = require("./accounts.cjs");
 const { getSettingsPath, loadSettings, updateSettings } = require("./settings.cjs");
+const { createTray, destroyTray, updateTray } = require("./tray.cjs");
+const { checkForUpdates, getUpdateStatus, setStatusListener } = require("./updater.cjs");
+const { chooseGlobalShortcut, defaultGlobalShortcut } = require("./shortcuts.cjs");
 
 // Папку профиля Electron по умолчанию выводит из поля name в package.json. Любое
 // переименование пакета увело бы приложение на пустой профиль — со стороны это
@@ -39,7 +42,6 @@ const regularToolbarHeight = 52;
 const compactTopbarHeight = 56;
 const compactToolbarHeight = 44;
 const defaultOverlayHeight = 344;
-const defaultGlobalShortcut = "Alt+Space";
 // Восемь тяжёлых веб-приложений, стартующих одновременно, забивали сеть и процессор
 // настолько, что часть из них не успевала подняться. Разносим запуск во времени.
 const accountLoadStaggerMs = 1500;
@@ -69,6 +71,7 @@ const reloadsAfterCrash = new Map();
 const pendingLoadTimers = new Set();
 const isDevToolsEnabled = process.env.MESSENGER_HUB_DEVTOOLS === "1";
 let storageFlushTimer;
+let startupUpdateCheckTimer;
 let onlineWatchTimer;
 let wasOnline = true;
 let isFlushingBeforeQuit = false;
@@ -458,6 +461,7 @@ ipcMain.handle("accounts:list", () => ({
   activeAccountId,
   unreadCounts: Object.fromEntries(unreadCounts),
   accountStatuses: Object.fromEntries(accountStatuses),
+  updateStatus: getUpdateStatus(),
   isDevToolsEnabled,
   settings: appSettings,
   settingsPath: getSettingsPath(),
@@ -706,11 +710,13 @@ function accountStatePayload(extra = {}) {
     activeAccountId,
     unreadCounts: Object.fromEntries(unreadCounts),
     accountStatuses: Object.fromEntries(accountStatuses),
+    updateStatus: getUpdateStatus(),
     isDevToolsEnabled,
     settings: appSettings,
     settingsPath: getSettingsPath(),
     appVersion: app.getVersion(),
     globalShortcut: globalShortcutStatus,
+    platform: process.platform,
     ...extra
   };
 }
@@ -718,6 +724,34 @@ function accountStatePayload(extra = {}) {
 function updateDockBadge() {
   const total = [...unreadCounts.values()].reduce((sum, count) => sum + count, 0);
   app.setBadgeCount(total);
+  refreshTray(total);
+}
+
+function refreshTray(totalUnread) {
+  const offlineCount = webAccounts.filter(
+    (account) => accountStatuses.get(account.id) === "offline"
+  ).length;
+
+  updateTray({
+    totalUnread,
+    offlineCount,
+    items: webAccounts.map((account) => ({
+      id: account.id,
+      title: `${account.label} · ${platformName(account.platform)}`,
+      detail: trayAccountDetail(account),
+      isActive: account.id === activeAccountId
+    }))
+  });
+}
+
+function trayAccountDetail(account) {
+  const status = accountStatuses.get(account.id);
+  if (status === "offline") return "нет связи";
+  if (status === "loading") return "загружается";
+  if (status === "idle") return "в очереди";
+
+  const unread = unreadCounts.get(account.id) || 0;
+  return unread > 0 ? `${unread}` : "";
 }
 
 function showAccountNotification(account, delta) {
@@ -1098,14 +1132,22 @@ function showMainWindow() {
   windowRef.focus();
 }
 
+function hideMainWindow() {
+  if (!windowRef) {
+    return;
+  }
+
+  requestRendererLock();
+  windowRef.hide();
+}
+
 function toggleMainWindow() {
   if (!windowRef || !windowRef.isVisible() || windowRef.isMinimized()) {
     showMainWindow();
     return;
   }
 
-  requestRendererLock();
-  windowRef.hide();
+  hideMainWindow();
 }
 
 function applyLoginItemSettings() {
@@ -1125,16 +1167,33 @@ function registerGlobalShortcut() {
   }
 
   globalShortcut.unregisterAll();
-  const accelerator = appSettings.globalShortcut || defaultGlobalShortcut;
+  const requested = appSettings.globalShortcut || defaultGlobalShortcut;
 
   if (appSettings.globalShortcutEnabled === false) {
-    globalShortcutStatus = { accelerator, registered: false };
+    globalShortcutStatus = { accelerator: requested, requested, registered: false };
     broadcastAccountState();
     return;
   }
 
-  const registered = globalShortcut.register(accelerator, toggleMainWindow);
-  globalShortcutStatus = { accelerator, registered };
+  globalShortcutStatus = chooseGlobalShortcut(requested, (accelerator) => {
+    if (globalShortcut.register(accelerator, toggleMainWindow)) {
+      return true;
+    }
+
+    console.info(`Global shortcut ${accelerator} is not available`);
+    return false;
+  });
+
+  if (!globalShortcutStatus.registered) {
+    console.error("No global shortcut could be registered");
+  } else if (globalShortcutStatus.accelerator !== requested) {
+    console.info(
+      `Global shortcut ${requested} is taken, registered ${globalShortcutStatus.accelerator} instead`
+    );
+  } else {
+    console.info(`Global shortcut registered: ${globalShortcutStatus.accelerator}`);
+  }
+
   broadcastAccountState();
 }
 
@@ -1151,16 +1210,20 @@ function createApplicationMenu() {
         {
           label: "Hide Messenger Hub",
           accelerator: "CommandOrControl+H",
-          click: () => {
-            requestRendererLock();
-            windowRef?.hide();
-          }
+          click: hideMainWindow
         },
         { type: "separator" },
         {
           label: "Quick Switch...",
           accelerator: "CommandOrControl+K",
           click: () => sendToRenderer("command:open")
+        },
+        { type: "separator" },
+        {
+          label: "Проверить обновления",
+          click: () => {
+            void checkForUpdates({ feedUrl: appSettings.updateFeedUrl, silent: false });
+          }
         },
         { type: "separator" },
         {
@@ -1298,6 +1361,24 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     createWindow();
     createApplicationMenu();
+    createTray({
+      onShowWindow: showMainWindow,
+      onHideWindow: hideMainWindow,
+      onToggleWindow: toggleMainWindow,
+      onSelectAccount: (accountId) => {
+        showMainWindow();
+        selectAccount(accountId);
+      },
+      onQuit: quitApp
+    });
+    refreshTray([...unreadCounts.values()].reduce((sum, count) => sum + count, 0));
+
+    setStatusListener(() => broadcastAccountState());
+    // Не на самом старте: сначала пусть поднимутся мессенджеры, ради которых
+    // приложение и запускали.
+    startupUpdateCheckTimer = setTimeout(() => {
+      void checkForUpdates({ feedUrl: appSettings.updateFeedUrl, silent: true });
+    }, 20000);
 
     // После пробуждения Mac сокеты мертвы, а страницы об этом ещё не знают.
     powerMonitor.on("resume", () => retryOfflineAccounts("system resumed"));
@@ -1309,10 +1390,13 @@ if (!app.requestSingleInstanceLock()) {
     globalShortcut.unregisterAll();
     clearInterval(storageFlushTimer);
     clearInterval(onlineWatchTimer);
+    clearTimeout(startupUpdateCheckTimer);
     pendingLoadTimers.forEach(clearTimeout);
     pendingLoadTimers.clear();
     retryTimers.forEach(clearTimeout);
     retryTimers.clear();
+
+    destroyTray();
 
     if (isFlushingBeforeQuit) {
       return;

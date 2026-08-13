@@ -10,7 +10,8 @@
   "scripts": {
     "start": "electron .",
     "start:devtools": "MESSENGER_HUB_DEVTOOLS=1 electron .",
-    "test": "node scripts/check-json-store.cjs",
+    "test": "node scripts/check-json-store.cjs && node scripts/check-shortcuts.cjs",
+    "icons:tray": "node scripts/make-tray-icons.cjs",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",
     "dist": "electron-builder --mac --win"
@@ -19,7 +20,9 @@
     "electron": "^43.1.0",
     "electron-builder": "^26.0.12"
   },
-  "dependencies": {},
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
   "build": {
     "appId": "local.messenger-hub.desktop",
     "productName": "Messenger Hub",
@@ -34,8 +37,18 @@
       "category": "public.app-category.social-networking",
       "icon": "src/desktop/assets/icon.icns",
       "target": [
-        { "target": "dmg", "arch": ["arm64"] },
-        { "target": "zip", "arch": ["arm64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
       ],
       "extendInfo": {
         "NSCameraUsageDescription": "Нужен доступ к камере для видеозвонков в мессенджерах.",
@@ -46,8 +59,18 @@
     "win": {
       "icon": "src/desktop/assets/icon.png",
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "zip", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     },
     "nsis": {

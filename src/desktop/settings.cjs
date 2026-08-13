@@ -21,6 +21,9 @@ const defaultSettings = {
   pinHash: "",
   pinSalt: "",
   lockAfterMinutes: 5,
+  // Адрес папки, куда выкладываются собранные файлы обновления.
+  // Пока пустой, приложение обновления не ищет.
+  updateFeedUrl: "",
   windowBounds: {
     width: 1440,
     height: 920
