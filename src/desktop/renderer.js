@@ -76,28 +76,23 @@ let commandSelectedIndex = 0;
 let lockTimer;
 let isLocked = false;
 
-function overlayHeight() {
-  if (!commandBackdrop.hidden) {
-    return 288;
-  }
-
-  if (!settingsBackdrop.hidden) {
-    return 468;
-  }
-
-  if (!modalBackdrop.hidden || !settingsBackdrop.hidden || !editBackdrop.hidden || !onboardingBackdrop.hidden) {
-    return 344;
-  }
-
-  if (!accountMenu.hidden) {
-    return 132;
-  }
-
-  return 0;
+// Главному процессу достаточно знать, открыто ли что-то поверх страницы: он
+// прячет вкладку аккаунта целиком. Раньше сюда отдавалась высота диалога в
+// пикселях, на которую вкладку сдвигали вниз, и эти числа приходилось держать
+// согласованными с вёрсткой вручную.
+function isOverlayOpen() {
+  return [
+    commandBackdrop,
+    settingsBackdrop,
+    modalBackdrop,
+    editBackdrop,
+    onboardingBackdrop,
+    accountMenu
+  ].some((element) => !element.hidden);
 }
 
 function syncOverlay() {
-  void window.messengerShell.setOverlayOpen(overlayHeight());
+  void window.messengerShell.setOverlayOpen(isOverlayOpen());
 }
 
 function createPlatformIcon(platform) {

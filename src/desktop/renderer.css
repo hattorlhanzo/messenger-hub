@@ -551,24 +551,18 @@ body.compactMode .settingsButton {
 
 .modalBackdrop {
   position: fixed;
-  inset: 128px 0 auto 0;
+  inset: 0;
   display: grid;
   place-items: start center;
-  min-height: 344px;
-  padding: 18px;
-  border-bottom: 1px solid #d9d7ce;
-  background: rgba(248, 246, 239, 0.95);
-  box-shadow: 0 18px 34px rgba(23, 32, 27, 0.08);
-  backdrop-filter: blur(14px);
+  padding: 92px 18px 24px;
+  overflow-y: auto;
+  background: rgba(23, 32, 27, 0.32);
+  backdrop-filter: blur(8px);
   z-index: 18;
 }
 
 body.compactMode .modalBackdrop {
-  inset: 100px 0 auto 0;
-}
-
-#settingsBackdrop {
-  min-height: 468px;
+  padding-top: 68px;
 }
 
 .modalBackdrop[hidden] {
@@ -577,20 +571,18 @@ body.compactMode .modalBackdrop {
 
 .commandBackdrop {
   position: fixed;
-  inset: 128px 0 auto 0;
+  inset: 0;
   display: grid;
   place-items: start center;
-  min-height: 288px;
-  padding: 18px;
-  border-bottom: 1px solid #d9d7ce;
-  background: rgba(248, 246, 239, 0.96);
-  box-shadow: 0 18px 34px rgba(23, 32, 27, 0.08);
-  backdrop-filter: blur(14px);
+  padding: 92px 18px 24px;
+  overflow-y: auto;
+  background: rgba(23, 32, 27, 0.32);
+  backdrop-filter: blur(8px);
   z-index: 22;
 }
 
 body.compactMode .commandBackdrop {
-  inset: 100px 0 auto 0;
+  padding-top: 68px;
 }
 
 .commandBackdrop[hidden] {
@@ -640,7 +632,9 @@ body.compactMode .commandBackdrop {
 .commandResults {
   display: grid;
   gap: 4px;
-  max-height: 190px;
+  /* 190px хватало ровно на ту полосу, что отрезалась у мессенджера. При восьми
+     аккаунтах список пролезал в неё едва наполовину. */
+  max-height: min(380px, 44vh);
   overflow: auto;
 }
 
@@ -793,7 +787,9 @@ body.compactMode .commandBackdrop {
 
 .managementModal {
   width: min(940px, calc(100vw - 40px));
-  max-height: 432px;
+  /* Высота была ограничена 432px под ту полосу, которую главный процесс отрезал
+     у страницы мессенджера. Диалог больше не втискивается в неё и растёт с окном. */
+  max-height: calc(100vh - 140px);
   overflow: auto;
 }
 
@@ -881,7 +877,7 @@ body.compactMode .commandBackdrop {
 .managementAccounts {
   display: grid;
   gap: 6px;
-  max-height: 284px;
+  max-height: 46vh;
   overflow: auto;
   padding-right: 2px;
 }

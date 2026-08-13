@@ -42,7 +42,6 @@ const regularTopbarHeight = 76;
 const regularToolbarHeight = 52;
 const compactTopbarHeight = 56;
 const compactToolbarHeight = 44;
-const defaultOverlayHeight = 344;
 // Восемь тяжёлых веб-приложений, стартующих одновременно, забивали сеть и процессор
 // настолько, что часть из них не успевала подняться. Разносим запуск во времени.
 const accountLoadStaggerMs = 1500;
@@ -77,7 +76,7 @@ let onlineWatchTimer;
 let wasOnline = true;
 let isFlushingBeforeQuit = false;
 let isQuitting = false;
-let reservedOverlayHeight = 0;
+let isOverlayOpen = false;
 let isInterfaceLocked = false;
 let persistWindowStateTimer;
 let globalShortcutStatus = {
@@ -368,17 +367,20 @@ function layoutActiveView() {
     return;
   }
 
-  const bounds = win.getContentBounds();
-  const reservedHeight = getTopbarHeight() + getToolbarHeight() + reservedOverlayHeight;
-  if (isInterfaceLocked) {
-    view.setBounds({
-      x: 0,
-      y: bounds.height,
-      width: Math.max(320, bounds.width),
-      height: 1
-    });
+  // Пока открыт диалог или включена блокировка, вкладка просто прячется.
+  // Раньше её приходилось сдвигать и сжимать вниз на высоту диалога, а при
+  // блокировке уводить за нижний край окна: BrowserView всегда рисовался поверх
+  // собственной страницы окна, и перекрыть его было нечем. Заодно исчезла
+  // перевёрстка страницы мессенджера при каждом открытии настроек.
+  if (isInterfaceLocked || isOverlayOpen) {
+    view.setVisible(false);
     return;
   }
+
+  view.setVisible(true);
+
+  const bounds = win.getContentBounds();
+  const reservedHeight = getTopbarHeight() + getToolbarHeight();
 
   view.setBounds({
     x: 0,
@@ -652,11 +654,8 @@ ipcMain.handle("view:devtools", () => {
   return { ok: true };
 });
 
-ipcMain.handle("view:overlay", (_event, height) => {
-  reservedOverlayHeight = Math.max(0, Number(height) || 0);
-  if (reservedOverlayHeight > 0 && reservedOverlayHeight < 96) {
-    reservedOverlayHeight = defaultOverlayHeight;
-  }
+ipcMain.handle("view:overlay", (_event, open) => {
+  isOverlayOpen = Boolean(open);
   layoutActiveView();
   return { ok: true };
 });
