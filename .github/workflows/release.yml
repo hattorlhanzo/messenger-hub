@@ -13,15 +13,42 @@ on:
       - "v*"
   workflow_dispatch:
 
-# Нужно, чтобы electron-builder мог создать релиз и загрузить в него файлы.
+# Нужно, чтобы создать релиз и загрузить в него файлы.
 permissions:
   contents: write
 
 jobs:
-  # Задачи идут по очереди, а не параллельно: обе публикуются в один и тот же
-  # релиз, и одновременное создание релиза приводит к гонке.
+  # Релиз создаётся заранее и отдельно от сборок.
+  #
+  # Иначе его создаёт сам electron-builder — и делает это при загрузке первого
+  # же файла. Файлы он загружает параллельно, поэтому два из них успевают создать
+  # релиз одновременно, и получается два релиза с одним тегом: часть файлов
+  # в одном, часть в другом. Автообновление при этом молча ломается, потому что
+  # манифест и установщик оказываются в разных релизах.
+  prepare:
+    name: Подготовить релиз
+    runs-on: ubuntu-latest
+    steps:
+      - name: Создать релиз, если его ещё нет
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Релиз $TAG уже существует, создавать не нужно"
+          else
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" \
+              --generate-notes
+            echo "Релиз $TAG создан"
+          fi
+
+  # Сборки идут параллельно: релиз уже существует, создавать его им не придётся.
   macos:
     name: macOS (arm64)
+    needs: prepare
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +73,7 @@ jobs:
 
   windows:
     name: Windows (x64)
-    needs: macos
+    needs: prepare
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
