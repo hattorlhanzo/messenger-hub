@@ -75,7 +75,17 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    }
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Messenger-Hub-Setup-${version}.${ext}"
+    },
+    "artifactName": "Messenger-Hub-${version}-${arch}.${ext}",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "hattorlhanzo",
+        "repo": "messenger-hub",
+        "releaseType": "release"
+      }
+    ]
   }
 }

@@ -1,0 +1,68 @@
+name: Сборка и публикация релиза
+
+# Запускается, когда в репозиторий приходит тег вида v1.6.1.
+# Порядок работы: поднять версию в package.json, закоммитить, поставить тег,
+# отправить тег — дальше всё делают серверы GitHub.
+#
+# Кнопка «Run workflow» на вкладке Actions запускает сборку вручную,
+# без публикации: полезно проверить, что всё собирается.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+# Нужно, чтобы electron-builder мог создать релиз и загрузить в него файлы.
+permissions:
+  contents: write
+
+jobs:
+  # Задачи идут по очереди, а не параллельно: обе публикуются в один и тот же
+  # релиз, и одновременное создание релиза приводит к гонке.
+  macos:
+    name: macOS (arm64)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Установить зависимости
+        run: npm ci
+
+      - name: Проверки
+        run: npm test
+
+      - name: Собрать и опубликовать
+        run: npm run dist:mac -- --publish ${{ github.event_name == 'push' && 'always' || 'never' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Подписи нет, и попытка её найти только ломает сборку.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+  windows:
+    name: Windows (x64)
+    needs: macos
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Установить зависимости
+        run: npm ci
+
+      - name: Проверки
+        run: npm test
+
+      - name: Собрать и опубликовать
+        run: npm run dist:win -- --publish ${{ github.event_name == 'push' && 'always' || 'never' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
