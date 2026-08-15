@@ -1,6 +1,6 @@
 {
   "name": "all-in-one-messengers",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Local desktop messenger hub for multiple web messenger sessions.",
   "private": true,
   "type": "module",
