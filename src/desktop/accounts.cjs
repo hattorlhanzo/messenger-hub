@@ -25,13 +25,34 @@ function createAccount(input) {
     phone: input.phone || "",
     notificationsEnabled: input.notificationsEnabled !== false,
     url: input.url || platformUrl(platform),
-    userAgent: input.userAgent || desktopChromeUserAgent(),
+    userAgent: resolveUserAgent(input.userAgent),
     partition: input.partition || `persist:${id}`
   };
 }
 
+// Строка была зашита под macOS, из-за чего на Windows мессенджеры отдавали
+// интерфейс для Mac — вплоть до чужих сочетаний клавиш в подсказках.
+const platformTokens = {
+  darwin: "Macintosh; Intel Mac OS X 10_15_7",
+  win32: "Windows NT 10.0; Win64; x64",
+  linux: "X11; Linux x86_64"
+};
+
 function desktopChromeUserAgent() {
-  return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
+  const token = platformTokens[process.platform] || platformTokens.darwin;
+  return `Mozilla/5.0 (${token}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36`;
+}
+
+// Аккаунт мог быть создан на другой системе: файл настроек переносят вместе
+// с профилем. Чужую строку заменяем на подходящую текущей системе.
+function resolveUserAgent(stored) {
+  const token = platformTokens[process.platform] || platformTokens.darwin;
+
+  if (typeof stored === "string" && stored.includes(token)) {
+    return stored;
+  }
+
+  return desktopChromeUserAgent();
 }
 
 function defaultLabel(platform) {
@@ -158,6 +179,8 @@ function getAccountsPath() {
 
 module.exports = {
   addAccount,
+  desktopChromeUserAgent,
+  resolveUserAgent,
   getAccountsPath,
   loadAccounts,
   removeAccount,

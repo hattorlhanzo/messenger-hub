@@ -1,6 +1,6 @@
 {
   "name": "all-in-one-messengers",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Local desktop messenger hub for multiple web messenger sessions.",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
   "scripts": {
     "start": "electron .",
     "start:devtools": "MESSENGER_HUB_DEVTOOLS=1 electron .",
-    "test": "node scripts/check-json-store.cjs && node scripts/check-shortcuts.cjs && node scripts/check-navigation.cjs && node scripts/check-logger.cjs",
+    "test": "node scripts/check-json-store.cjs && node scripts/check-shortcuts.cjs && node scripts/check-navigation.cjs && node scripts/check-logger.cjs && node scripts/check-unread.cjs",
     "icons:tray": "node scripts/make-tray-icons.cjs",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",

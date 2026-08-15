@@ -28,6 +28,7 @@ const { checkForUpdates, getUpdateStatus, setStatusListener } = require("./updat
 const { chooseGlobalShortcut, defaultGlobalShortcut } = require("./shortcuts.cjs");
 const { canOpenExternally, isAllowedInsideView } = require("./navigation.cjs");
 const { getLogFilePath, initLogger, logFromRenderer } = require("./logger.cjs");
+const { extractUnreadCount, shouldNotifyAboutUnread } = require("./unread.cjs");
 
 // Папку профиля Electron по умолчанию выводит из поля name в package.json. Любое
 // переименование пакета увело бы приложение на пустой профиль — со стороны это
@@ -86,6 +87,10 @@ const retryAttempts = new Map();
 // Аккаунты, чья текущая загрузка провалилась. Нужен отдельный признак, потому что
 // страница ошибки Chromium — это тоже успешно загруженная страница.
 const failedAccounts = new Set();
+// Аккаунты, для которых счётчик непрочитанных уже был замечен после загрузки.
+// До этого уведомлять не о чем: первое значение — то, что накопилось,
+// пока приложение было закрыто.
+const seenUnreadBaseline = new Set();
 const reloadsAfterCrash = new Map();
 const pendingLoadTimers = new Set();
 const isDevToolsEnabled = process.env.MESSENGER_HUB_DEVTOOLS === "1";
@@ -310,6 +315,9 @@ function loadAccountView(account) {
   }
 
   failedAccounts.delete(account.id);
+  // Страница грузится заново, прежний счётчик больше не точка отсчёта:
+  // иначе после каждого переподключения сыпались бы уведомления о старом.
+  seenUnreadBaseline.delete(account.id);
   setAccountStatus(account.id, "loading");
   view.webContents.loadURL(account.url).catch((error) => {
     // loadURL отклоняется тем же кодом, что придёт в did-fail-load,
@@ -635,6 +643,7 @@ async function removeAccountById(id, options = {}) {
   retryAttempts.delete(id);
   reloadsAfterCrash.delete(id);
   failedAccounts.delete(id);
+  seenUnreadBaseline.delete(id);
   webAccounts = removeAccount(id);
   activeAccountId = activeAccountId === id ? webAccounts[0]?.id : activeAccountId;
   webAccounts.forEach(createAccountView);
@@ -793,18 +802,16 @@ function updateAccountTitleState(account) {
   const next = extractUnreadCount(title);
   unreadCounts.set(account.id, next);
 
+  const hasBaseline = seenUnreadBaseline.has(account.id);
+  seenUnreadBaseline.add(account.id);
+
   const hadRecentPreview = Date.now() - (recentPreviewAt.get(account.id) || 0) < 4000;
-  if (next > previous && previous !== 0 && !hadRecentPreview) {
+  if (shouldNotifyAboutUnread({ hasBaseline, previous, next, hadRecentPreview })) {
     showAccountNotification(currentAccount, next - previous);
   }
 
   broadcastAccountState();
   sendNavigationState();
-}
-
-function extractUnreadCount(title = "") {
-  const match = title.match(/^\((\d+)\)/);
-  return match ? Number(match[1]) : 0;
 }
 
 function broadcastAccountState() {
