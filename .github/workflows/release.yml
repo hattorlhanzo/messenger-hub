@@ -113,3 +113,31 @@ jobs:
         run: npm run dist:win -- --publish ${{ github.event_name == 'push' && 'always' || 'never' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Снятие черновика вынесено в отдельный шаг после обеих сборок.
+  #
+  # electron-builder держит релиз черновиком, пока заливает в него файлы, и
+  # снимает черновик по завершении. Когда сборок две и идут они параллельно,
+  # одна успевает вернуть черновой статус после того, как другая его сняла —
+  # релиз остаётся невидимым снаружи, хотя все задачи зелёные.
+  finalize:
+    name: Опубликовать релиз
+    needs: [macos, windows]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Снять черновик и проверить содержимое
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,assets \
+            --jq '"черновик: \(.isDraft) | файлов: \(.assets | length)"'
+
+          COUNT=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')
+          if [ "$COUNT" -lt 6 ]; then
+            echo "::error::В релизе всего $COUNT файлов — ожидалось не меньше шести."
+            exit 1
+          fi
