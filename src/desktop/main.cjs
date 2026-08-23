@@ -11,7 +11,6 @@ const {
   Notification,
   powerMonitor,
   screen,
-  session,
   shell
 } = require("electron");
 const {
@@ -30,6 +29,11 @@ const { getLogFilePath, initLogger, logFromRenderer } = require("./logger.cjs");
 const { extractUnreadCount, shouldNotifyAboutUnread } = require("./unread.cjs");
 const { createPinSalt, hashPin, normalizePin, verifyPin } = require("./security.cjs");
 const { normalizeWindowBounds } = require("./windowBounds.cjs");
+const {
+  clearAccountSession,
+  configureAccountSession,
+  flushSessions
+} = require("./sessions.cjs");
 
 // Папку профиля Electron по умолчанию выводит из поля name в package.json. Любое
 // переименование пакета увело бы приложение на пустой профиль — со стороны это
@@ -77,7 +81,6 @@ let activeAccountId;
 let appSettings = {};
 const views = new Map();
 const unreadCounts = new Map();
-const configuredSessionPartitions = new Set();
 const recentPreviewKeys = new Map();
 const recentPreviewAt = new Map();
 // "loading" | "ready" | "offline" — состояние загрузки страницы аккаунта.
@@ -206,7 +209,7 @@ function createAccountView(account, { load = true } = {}) {
     accountStatuses.delete(account.id);
   }
 
-  configureAccountSession(account);
+  configureAccountSession(account.partition);
 
   const view = new WebContentsView({
     webPreferences: {
@@ -1058,26 +1061,10 @@ function startStorageFlushTimer() {
   }, storageFlushIntervalMs);
 }
 
-async function flushAllSessions() {
-  const partitions = new Set(
-    webAccounts.map((account) => account.partition).filter(Boolean)
-  );
-
-  await Promise.all(
-    [...partitions].map(async (partition) => {
-      try {
-        const accountSession = session.fromPartition(partition);
-        await accountSession.cookies.flushStore();
-        accountSession.flushStorageData();
-      } catch (error) {
-        console.error(`Failed to flush ${partition}:`, error.message);
-      }
-    })
-  );
+function flushAllSessions() {
+  return flushSessions(webAccounts.map((account) => account.partition));
 }
 
-// Без этого права Chromium считает данные сайта расходными и вправе удалить их,
-// когда решит освободить место — то есть разлогинить все аккаунты разом.
 function requestPersistentStorage(view, account) {
   if (!view || view.webContents.isDestroyed()) {
     return;
@@ -1106,41 +1093,6 @@ function requestPersistentStorage(view, account) {
     .catch(() => {});
 }
 
-function configureAccountSession(account) {
-  if (!account.partition || configuredSessionPartitions.has(account.partition)) {
-    return;
-  }
-
-  configuredSessionPartitions.add(account.partition);
-  const accountSession = session.fromPartition(account.partition);
-
-  accountSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-    callback(isAllowedWebMessengerPermission(permission));
-  });
-
-  accountSession.setPermissionCheckHandler((_webContents, permission) => {
-    return isAllowedWebMessengerPermission(permission);
-  });
-}
-
-function isAllowedWebMessengerPermission(permission) {
-  return [
-    "notifications",
-    "media",
-    "fullscreen",
-    "clipboard-sanitized-write",
-    // Право «не удаляй мои данные». Без него IndexedDB мессенджеров считается
-    // расходной и вычищается при нехватке квоты — со всеми сессиями сразу.
-    "persistent-storage",
-    // Нужен service worker'ам мессенджеров, чтобы доставить сообщения,
-    // накопившиеся, пока связи не было.
-    "background-sync"
-  ].includes(permission);
-}
-
-// Уведомление пришло из вкладки аккаунта по выделенному каналу. Отправителя
-// определяем по самой вкладке: сообщение больше нельзя подделать записью
-// в консоль, и посторонние логи страниц сюда не попадают.
 ipcMain.on("account:notification", (event, payload) => {
   const account = accountForWebContents(event.sender);
   if (!account) {
@@ -1346,23 +1298,6 @@ function requestRendererLock() {
   isInterfaceLocked = true;
   layoutActiveView();
   sendToRenderer("security:lock");
-}
-
-async function clearAccountSession(partition) {
-  const accountSession = session.fromPartition(partition);
-  await accountSession.clearStorageData({
-    storages: [
-      "cookies",
-      "filesystem",
-      "indexdb",
-      "localstorage",
-      "shadercache",
-      "websql",
-      "serviceworkers",
-      "cachestorage"
-    ]
-  });
-  await accountSession.clearCache();
 }
 
 // Два экземпляра на одном профиле — это два процесса, пишущих в одни и те же базы
