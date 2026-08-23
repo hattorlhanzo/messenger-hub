@@ -8,7 +8,6 @@ const {
   ipcMain,
   Menu,
   net,
-  Notification,
   powerMonitor,
   screen,
   shell
@@ -34,6 +33,14 @@ const {
   configureAccountSession,
   flushSessions
 } = require("./sessions.cjs");
+const {
+  forgetAccount,
+  hadRecentPreview,
+  initNotifications,
+  platformName,
+  showAccountNotification,
+  showMessagePreviewNotification
+} = require("./notifications.cjs");
 
 // Папку профиля Electron по умолчанию выводит из поля name в package.json. Любое
 // переименование пакета увело бы приложение на пустой профиль — со стороны это
@@ -81,8 +88,6 @@ let activeAccountId;
 let appSettings = {};
 const views = new Map();
 const unreadCounts = new Map();
-const recentPreviewKeys = new Map();
-const recentPreviewAt = new Map();
 // "loading" | "ready" | "offline" — состояние загрузки страницы аккаунта.
 // Раньше отличить «нет сети» от «разлогинило» было невозможно даже в коде.
 const accountStatuses = new Map();
@@ -629,6 +634,7 @@ async function removeAccountById(id, options = {}) {
   reloadsAfterCrash.delete(id);
   failedAccounts.delete(id);
   seenUnreadBaseline.delete(id);
+  forgetAccount(id);
   webAccounts = removeAccount(id);
   activeAccountId = activeAccountId === id ? webAccounts[0]?.id : activeAccountId;
   webAccounts.forEach(createAccountView);
@@ -790,9 +796,15 @@ function updateAccountTitleState(account) {
   const hasBaseline = seenUnreadBaseline.has(account.id);
   seenUnreadBaseline.add(account.id);
 
-  const hadRecentPreview = Date.now() - (recentPreviewAt.get(account.id) || 0) < 4000;
-  if (shouldNotifyAboutUnread({ hasBaseline, previous, next, hadRecentPreview })) {
-    showAccountNotification(currentAccount, next - previous);
+  if (
+    shouldNotifyAboutUnread({
+      hasBaseline,
+      previous,
+      next,
+      hadRecentPreview: hadRecentPreview(account.id)
+    })
+  ) {
+    showAccountNotification(currentAccount, next - previous, appSettings);
   }
 
   broadcastAccountState();
@@ -870,96 +882,6 @@ function trayAccountDetail(account) {
 
   const unread = unreadCounts.get(account.id) || 0;
   return unread > 0 ? `${unread}` : "";
-}
-
-function showAccountNotification(account, delta) {
-  if (
-    !appSettings.notificationsEnabled ||
-    account.notificationsEnabled === false ||
-    !Notification.isSupported()
-  ) {
-    return;
-  }
-
-  const notification = new Notification({
-    title: accountNotificationTitle(account),
-    subtitle: platformName(account.platform),
-    body: delta === 1 ? "Новое сообщение" : `Новых сообщений: ${delta}`
-  });
-
-  notification.on("click", () => {
-    showMainWindow();
-    selectAccount(account.id);
-  });
-
-  notification.show();
-}
-
-function showMessagePreviewNotification(account, preview) {
-  if (
-    !appSettings.notificationsEnabled ||
-    !appSettings.messagePreviewsEnabled ||
-    account.notificationsEnabled === false ||
-    !Notification.isSupported()
-  ) {
-    return;
-  }
-
-  const title = cleanNotificationText(preview.title) || platformName(account.platform);
-  const body = cleanNotificationText(preview.body) || "Новое сообщение";
-
-  if (!shouldShowPreview(account.id, title, body)) {
-    return;
-  }
-
-  recentPreviewAt.set(account.id, Date.now());
-
-  const notification = new Notification({
-    title: accountNotificationTitle(account),
-    subtitle: title,
-    body
-  });
-
-  notification.on("click", () => {
-    showMainWindow();
-    selectAccount(account.id);
-  });
-
-  notification.show();
-}
-
-function accountNotificationTitle(account) {
-  const phone = cleanNotificationText(account.phone);
-  return phone ? `${account.label} · ${phone}` : account.label;
-}
-
-function platformName(platform) {
-  if (platform === "whatsapp") return "WhatsApp";
-  if (platform === "telegram") return "Telegram";
-  return "Instagram";
-}
-
-function cleanNotificationText(value) {
-  return String(value || "").replace(/\s+/g, " ").trim().slice(0, 220);
-}
-
-function shouldShowPreview(accountId, title, body) {
-  const now = Date.now();
-  const key = `${accountId}:${title}:${body}`;
-  const previous = recentPreviewKeys.get(key) || 0;
-
-  for (const [storedKey, timestamp] of recentPreviewKeys) {
-    if (now - timestamp > 15000) {
-      recentPreviewKeys.delete(storedKey);
-    }
-  }
-
-  if (now - previous < 3000) {
-    return false;
-  }
-
-  recentPreviewKeys.set(key, now);
-  return true;
 }
 
 function setAccountStatus(accountId, status) {
@@ -1099,10 +1021,11 @@ ipcMain.on("account:notification", (event, payload) => {
     return;
   }
 
-  showMessagePreviewNotification(account, {
-    title: String(payload?.title || ""),
-    body: String(payload?.body || "")
-  });
+  showMessagePreviewNotification(
+    account,
+    { title: String(payload?.title || ""), body: String(payload?.body || "") },
+    appSettings
+  );
 });
 
 function accountForWebContents(sender) {
@@ -1323,6 +1246,14 @@ if (!app.requestSingleInstanceLock()) {
       onQuit: quitApp
     });
     refreshTray([...unreadCounts.values()].reduce((sum, count) => sum + count, 0));
+
+    // Клик по уведомлению открывает окно на нужном аккаунте.
+    initNotifications({
+      onOpenAccount: (accountId) => {
+        showMainWindow();
+        selectAccount(accountId);
+      }
+    });
 
     setStatusListener(() => broadcastAccountState());
     // Не на самом старте: сначала пусть поднимутся мессенджеры, ради которых
