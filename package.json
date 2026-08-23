@@ -10,7 +10,7 @@
   "scripts": {
     "start": "electron .",
     "start:devtools": "MESSENGER_HUB_DEVTOOLS=1 electron .",
-    "test": "node scripts/check-json-store.cjs && node scripts/check-shortcuts.cjs && node scripts/check-navigation.cjs && node scripts/check-logger.cjs && node scripts/check-unread.cjs && node scripts/check-security.cjs && node scripts/check-notifications.cjs",
+    "test": "node scripts/check-json-store.cjs && node scripts/check-shortcuts.cjs && node scripts/check-navigation.cjs && node scripts/check-logger.cjs && node scripts/check-unread.cjs && node scripts/check-security.cjs && node scripts/check-notifications.cjs && node scripts/check-app-menu.cjs",
     "icons:tray": "node scripts/make-tray-icons.cjs",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",

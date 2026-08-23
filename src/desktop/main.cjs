@@ -33,6 +33,7 @@ const {
   configureAccountSession,
   flushSessions
 } = require("./sessions.cjs");
+const { applyApplicationMenu } = require("./appMenu.cjs");
 const {
   forgetAccount,
   hadRecentPreview,
@@ -1118,94 +1119,31 @@ function registerGlobalShortcut() {
 }
 
 function createApplicationMenu() {
-  const template = [
-    {
-      label: "Messenger Hub",
-      submenu: [
-        {
-          label: "Show Messenger Hub",
-          accelerator: "CommandOrControl+Shift+M",
-          click: showMainWindow
-        },
-        {
-          label: "Hide Messenger Hub",
-          accelerator: "CommandOrControl+H",
-          click: hideMainWindow
-        },
-        { type: "separator" },
-        {
-          label: "Quick Switch...",
-          accelerator: "CommandOrControl+K",
-          click: () => sendToRenderer("command:open")
-        },
-        { type: "separator" },
-        {
-          label: "Проверить обновления",
-          click: () => {
-            void checkForUpdates({ feedUrl: appSettings.updateFeedUrl, silent: false });
-          }
-        },
-        { type: "separator" },
-        {
-          label: "Launch at Login",
-          type: "checkbox",
-          checked: Boolean(appSettings.launchAtLogin),
-          click: (menuItem) => {
-            appSettings = updateSettings({ launchAtLogin: menuItem.checked });
-            applyLoginItemSettings();
-            broadcastAccountState();
-          }
-        },
-        {
-          label: "Keep Running in Background",
-          type: "checkbox",
-          checked: appSettings.keepInBackground !== false,
-          click: (menuItem) => {
-            appSettings = updateSettings({ keepInBackground: menuItem.checked });
-            broadcastAccountState();
-          }
-        },
-        { type: "separator" },
-        {
-          label: "Quit Messenger Hub",
-          accelerator: "CommandOrControl+Q",
-          click: quitApp
-        }
-      ]
-    },
-    {
-      label: "Accounts",
-      submenu: createAccountMenuItems()
-    },
-    {
-      label: "View",
-      submenu: [
-        { role: "reload" },
-        { role: "togglefullscreen" },
-        ...(isDevToolsEnabled ? [{ role: "toggleDevTools" }] : [])
-      ]
-    },
-    {
-      label: "Window",
-      submenu: [{ role: "minimize" }, { role: "zoom" }]
+  applyApplicationMenu({
+    accounts: webAccounts,
+    activeAccountId,
+    settings: appSettings,
+    isDevToolsEnabled,
+    actions: {
+      onShowWindow: showMainWindow,
+      onHideWindow: hideMainWindow,
+      onQuickSwitch: () => sendToRenderer("command:open"),
+      onCheckUpdates: () => {
+        void checkForUpdates({ feedUrl: appSettings.updateFeedUrl, silent: false });
+      },
+      onToggleLaunchAtLogin: (checked) => {
+        appSettings = updateSettings({ launchAtLogin: checked });
+        applyLoginItemSettings();
+        broadcastAccountState();
+      },
+      onToggleKeepInBackground: (checked) => {
+        appSettings = updateSettings({ keepInBackground: checked });
+        broadcastAccountState();
+      },
+      onSelectAccount: selectAccount,
+      onQuit: quitApp
     }
-  ];
-
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-}
-
-function createAccountMenuItems() {
-  if (webAccounts.length === 0) {
-    return [{ label: "No accounts", enabled: false }];
-  }
-
-  return webAccounts.slice(0, 9).map((account, index) => ({
-    label: `${index + 1}. ${account.label}`,
-    accelerator: `CommandOrControl+${index + 1}`,
-    type: "checkbox",
-    checked: account.id === activeAccountId,
-    click: () => selectAccount(account.id)
-  }));
+  });
 }
 
 function quitApp() {
