@@ -1,5 +1,4 @@
 const path = require("node:path");
-const crypto = require("node:crypto");
 const {
   app,
   BrowserWindow,
@@ -29,6 +28,8 @@ const { chooseGlobalShortcut, defaultGlobalShortcut } = require("./shortcuts.cjs
 const { canOpenExternally, isAllowedInsideView } = require("./navigation.cjs");
 const { getLogFilePath, initLogger, logFromRenderer } = require("./logger.cjs");
 const { extractUnreadCount, shouldNotifyAboutUnread } = require("./unread.cjs");
+const { createPinSalt, hashPin, normalizePin, verifyPin } = require("./security.cjs");
+const { normalizeWindowBounds } = require("./windowBounds.cjs");
 
 // Папку профиля Electron по умолчанию выводит из поля name в package.json. Любое
 // переименование пакета увело бы приложение на пустой профиль — со стороны это
@@ -118,7 +119,9 @@ function createWindow() {
     webAccounts.find((account) => account.id === appSettings.startAccountId)?.id ||
     webAccounts[0]?.id;
 
-  const windowBounds = normalizeWindowBounds(appSettings.windowBounds);
+  const windowBounds = normalizeWindowBounds(appSettings.windowBounds, (rect) =>
+    screen.getDisplayMatching(rect)
+  );
   const win = new BrowserWindow({
     ...windowBounds,
     minWidth: 980,
@@ -457,27 +460,6 @@ function persistWindowState(patch = {}) {
   appSettings = updateSettings(nextSettings);
 }
 
-function normalizeWindowBounds(bounds = {}) {
-  const width = Math.max(980, Number(bounds.width) || 1440);
-  const height = Math.max(680, Number(bounds.height) || 920);
-
-  if (!Number.isFinite(bounds.x) || !Number.isFinite(bounds.y)) {
-    return { width, height };
-  }
-
-  const display = screen.getDisplayMatching({
-    x: bounds.x,
-    y: bounds.y,
-    width,
-    height
-  });
-  const area = display.workArea;
-  const x = Math.min(Math.max(bounds.x, area.x), area.x + Math.max(0, area.width - 200));
-  const y = Math.min(Math.max(bounds.y, area.y), area.y + Math.max(0, area.height - 120));
-
-  return { x, y, width, height };
-}
-
 function activeView() {
   return views.get(activeAccountId);
 }
@@ -691,7 +673,7 @@ ipcMain.handle("settings:update", (_event, patch) => {
 
 ipcMain.handle("security:set-pin", (_event, pin) => {
   const normalizedPin = normalizePin(pin);
-  const salt = crypto.randomBytes(16).toString("hex");
+  const salt = createPinSalt();
   appSettings = updateSettings({
     pinEnabled: true,
     pinSalt: salt,
@@ -714,7 +696,7 @@ ipcMain.handle("security:disable-pin", () => {
 });
 
 ipcMain.handle("security:verify-pin", (_event, pin) => {
-  const ok = verifyPin(pin);
+  const ok = verifyPin(pin, appSettings);
   if (ok) {
     isInterfaceLocked = false;
     layoutActiveView();
@@ -1364,35 +1346,6 @@ function requestRendererLock() {
   isInterfaceLocked = true;
   layoutActiveView();
   sendToRenderer("security:lock");
-}
-
-function normalizePin(pin) {
-  const normalizedPin = String(pin || "").trim();
-  if (!/^\d{4,12}$/.test(normalizedPin)) {
-    throw new Error("PIN must contain 4 to 12 digits");
-  }
-  return normalizedPin;
-}
-
-function hashPin(pin, salt) {
-  return crypto.scryptSync(pin, salt, 32).toString("hex");
-}
-
-function verifyPin(pin) {
-  if (!appSettings.pinEnabled || !appSettings.pinHash || !appSettings.pinSalt) {
-    return true;
-  }
-
-  let candidate;
-  try {
-    candidate = hashPin(normalizePin(pin), appSettings.pinSalt);
-  } catch {
-    return false;
-  }
-
-  const saved = Buffer.from(appSettings.pinHash, "hex");
-  const current = Buffer.from(candidate, "hex");
-  return saved.length === current.length && crypto.timingSafeEqual(saved, current);
 }
 
 async function clearAccountSession(partition) {
