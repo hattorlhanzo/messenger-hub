@@ -1,6 +1,9 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("messengerShell", {
+  // Нужна сразу, до первого ответа главного процесса: от неё зависит верстка
+  // боковой панели — на macOS сверху место под кнопки окна.
+  platform: process.platform,
   getAccounts: () => ipcRenderer.invoke("accounts:list"),
   addAccount: (input) => ipcRenderer.invoke("accounts:add", input),
   updateAccount: (id, patch) => ipcRenderer.invoke("accounts:update", id, patch),
@@ -11,6 +14,7 @@ contextBridge.exposeInMainWorld("messengerShell", {
   updateSettings: (patch) => ipcRenderer.invoke("settings:update", patch),
   showSettingsFile: () => ipcRenderer.invoke("settings:show-file"),
   showLogs: () => ipcRenderer.invoke("logs:show"),
+  checkForUpdates: () => ipcRenderer.invoke("updates:check"),
   reportError: (level, text) => ipcRenderer.send("log:renderer", level, text),
   selectAccount: (id) => ipcRenderer.invoke("accounts:select", id),
   reload: () => ipcRenderer.invoke("view:reload"),

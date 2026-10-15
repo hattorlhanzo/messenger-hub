@@ -35,6 +35,8 @@
     },
     "mac": {
       "category": "public.app-category.social-networking",
+      "identity": "-",
+      "hardenedRuntime": false,
       "icon": "src/desktop/assets/icon.icns",
       "target": [
         {

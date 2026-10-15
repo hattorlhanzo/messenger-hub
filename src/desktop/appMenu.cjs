@@ -134,6 +134,8 @@ function buildMenuTemplate({
           accelerator: "CommandOrControl+R",
           click: actions.onReloadView
         },
+        { label: "Назад", accelerator: "CommandOrControl+[", click: actions.onGoBack },
+        { label: "Вперёд", accelerator: "CommandOrControl+]", click: actions.onGoForward },
         { type: "separator" },
         ...buildZoomItems(actions.onZoom),
         { type: "separator" },

@@ -1,103 +1,139 @@
-const accountList = document.getElementById("accountList");
-const accountCount = document.getElementById("accountCount");
-const pageTitle = document.getElementById("pageTitle");
-const pageUrl = document.getElementById("pageUrl");
-const backButton = document.getElementById("backButton");
-const forwardButton = document.getElementById("forwardButton");
-const reloadButton = document.getElementById("reloadButton");
-const devtoolsButton = document.getElementById("devtoolsButton");
-const addButton = document.getElementById("addButton");
-const settingsButton = document.getElementById("settingsButton");
-const modalBackdrop = document.getElementById("modalBackdrop");
-const addForm = document.getElementById("addForm");
-const cancelButton = document.getElementById("cancelButton");
-const platformInput = document.getElementById("platformInput");
-const labelInput = document.getElementById("labelInput");
-const phoneInput = document.getElementById("phoneInput");
-const phoneField = document.getElementById("phoneField");
-const settingsBackdrop = document.getElementById("settingsBackdrop");
-const settingsForm = document.getElementById("settingsForm");
-const settingsCancelButton = document.getElementById("settingsCancelButton");
-const managementAccounts = document.getElementById("managementAccounts");
-const managementAccountCount = document.getElementById("managementAccountCount");
-const operatorNameInput = document.getElementById("operatorNameInput");
-const startAccountInput = document.getElementById("startAccountInput");
-const notificationsInput = document.getElementById("notificationsInput");
-const messagePreviewsInput = document.getElementById("messagePreviewsInput");
-const launchAtLoginInput = document.getElementById("launchAtLoginInput");
-const backgroundInput = document.getElementById("backgroundInput");
-const compactModeInput = document.getElementById("compactModeInput");
-const globalShortcutInput = document.getElementById("globalShortcutInput");
-const globalShortcutStatus = document.getElementById("globalShortcutStatus");
-const pinEnabledInput = document.getElementById("pinEnabledInput");
-const pinInput = document.getElementById("pinInput");
-const lockAfterInput = document.getElementById("lockAfterInput");
-const currentPinField = document.getElementById("currentPinField");
-const currentPinInput = document.getElementById("currentPinInput");
-const pinStatus = document.getElementById("pinStatus");
-const settingsPath = document.getElementById("settingsPath");
-const appVersionText = document.getElementById("appVersionText");
-const updateStatusText = document.getElementById("updateStatusText");
-const openSettingsFileButton = document.getElementById("openSettingsFileButton");
-const openLogsButton = document.getElementById("openLogsButton");
-const editBackdrop = document.getElementById("editBackdrop");
-const editForm = document.getElementById("editForm");
-const editLabelInput = document.getElementById("editLabelInput");
-const editPhoneField = document.getElementById("editPhoneField");
-const editPhoneInput = document.getElementById("editPhoneInput");
-const editCancelButton = document.getElementById("editCancelButton");
-const commandBackdrop = document.getElementById("commandBackdrop");
-const commandInput = document.getElementById("commandInput");
-const commandResults = document.getElementById("commandResults");
-const onboardingBackdrop = document.getElementById("onboardingBackdrop");
-const onboardingForm = document.getElementById("onboardingForm");
-const onboardingNameInput = document.getElementById("onboardingNameInput");
-const lockBackdrop = document.getElementById("lockBackdrop");
-const lockForm = document.getElementById("lockForm");
-const lockPinInput = document.getElementById("lockPinInput");
-const lockError = document.getElementById("lockError");
+const $ = (id) => document.getElementById(id);
+
+const sidebar = $("sidebar");
+const workspaceLine = $("workspaceLine");
+const collapseButton = $("collapseButton");
+const collapseArrow = $("collapseArrow");
+const searchButton = $("searchButton");
+const searchKbd = $("searchKbd");
+const unreadLine = $("unreadLine");
+const accountList = $("accountList");
+const addButton = $("addButton");
+const lockButton = $("lockButton");
+const settingsButton = $("settingsButton");
+
+const emptyScreen = $("emptyScreen");
+const emptyAddButton = $("emptyAddButton");
+const offlineScreen = $("offlineScreen");
+const offlineTitle = $("offlineTitle");
+const offlineText = $("offlineText");
+const offlineMeta = $("offlineMeta");
+const retryButton = $("retryButton");
+const offlineLogsButton = $("offlineLogsButton");
+
+const addBackdrop = $("addBackdrop");
+const addForm = $("addForm");
+const addCancelButton = $("addCancelButton");
+const labelInput = $("labelInput");
+const phoneField = $("phoneField");
+const phoneInput = $("phoneInput");
+const addNote = $("addNote");
+
+const editBackdrop = $("editBackdrop");
+const editForm = $("editForm");
+const editLabelInput = $("editLabelInput");
+const editPhoneField = $("editPhoneField");
+const editPhoneInput = $("editPhoneInput");
+const editCancelButton = $("editCancelButton");
+
+const settingsBackdrop = $("settingsBackdrop");
+const settingsCloseButton = $("settingsCloseButton");
+const settingsTabs = [...document.querySelectorAll(".settingsTab")];
+const settingsPanels = [...document.querySelectorAll(".settingsPanel")];
+const settingsAccounts = $("settingsAccounts");
+const startAccountInput = $("startAccountInput");
+const notificationsInput = $("notificationsInput");
+const messagePreviewsInput = $("messagePreviewsInput");
+const pinStatusText = $("pinStatusText");
+const lockNowButton = $("lockNowButton");
+const lockAfterRow = $("lockAfterRow");
+const lockAfterInput = $("lockAfterInput");
+const pinForm = $("pinForm");
+const pinFormTitle = $("pinFormTitle");
+const currentPinField = $("currentPinField");
+const currentPinInput = $("currentPinInput");
+const newPinInput = $("newPinInput");
+const savePinButton = $("savePinButton");
+const disablePinButton = $("disablePinButton");
+const pinMessage = $("pinMessage");
+const operatorNameInput = $("operatorNameInput");
+const themeInput = $("themeInput");
+const compactModeInput = $("compactModeInput");
+const launchAtLoginInput = $("launchAtLoginInput");
+const backgroundInput = $("backgroundInput");
+const globalShortcutLabel = $("globalShortcutLabel");
+const globalShortcutStatus = $("globalShortcutStatus");
+const globalShortcutInput = $("globalShortcutInput");
+const appVersionText = $("appVersionText");
+const updateBox = $("updateBox");
+const updateStatusText = $("updateStatusText");
+const checkUpdatesButton = $("checkUpdatesButton");
+const openLogsButton = $("openLogsButton");
+const openSettingsFileButton = $("openSettingsFileButton");
+const devtoolsButton = $("devtoolsButton");
+const settingsPath = $("settingsPath");
+
+const commandBackdrop = $("commandBackdrop");
+const commandInput = $("commandInput");
+const commandResults = $("commandResults");
+const commandShortcutHint = $("commandShortcutHint");
+
+const onboardingBackdrop = $("onboardingBackdrop");
+const onboardingForm = $("onboardingForm");
+const onboardingNameInput = $("onboardingNameInput");
+
+const lockBackdrop = $("lockBackdrop");
+const lockForm = $("lockForm");
+const lockPinInput = $("lockPinInput");
+const lockError = $("lockError");
+const unlockButton = $("unlockButton");
+const lockHint = $("lockHint");
+
+const currentPlatform = window.messengerShell.platform || "";
+// Сочетания в подсказках: на Mac — значок Command, на Windows — Ctrl.
+const modKey = currentPlatform === "darwin" ? "⌘" : "Ctrl+";
 
 let accounts = [];
 let activeAccountId;
 let unreadCounts = {};
 let accountStatuses = {};
+let accountRetries = {};
 let settings = {};
 let currentSettingsPath = "";
 let currentGlobalShortcut = {};
-let currentPlatform = "";
 let currentUpdateStatus = {};
 let appVersion = "";
+let isDevToolsEnabled = false;
 let editingAccountId;
 let draggedAccountId;
-let didDragAccount = false;
 let commandMatches = [];
 let commandSelectedIndex = 0;
 let isLocked = false;
+let lockPausedUntil = 0;
 let drawnTaskbarBadge = "";
+let operatorNameTimer;
 
-// Главному процессу достаточно знать, открыто ли что-то поверх страницы: он
-// прячет вкладку аккаунта целиком. Раньше сюда отдавалась высота диалога в
-// пикселях, на которую вкладку сдвигали вниз, и эти числа приходилось держать
-// согласованными с вёрсткой вручную.
-function isOverlayOpen() {
-  return [
-    commandBackdrop,
-    settingsBackdrop,
-    modalBackdrop,
-    editBackdrop,
-    onboardingBackdrop
-  ].some((element) => !element.hidden);
-}
+document.documentElement.classList.add(`platform-${currentPlatform}`);
 
-function syncOverlay() {
-  void window.messengerShell.setOverlayOpen(isOverlayOpen());
-}
+// Значки мессенджеров — условные силуэты, не логотипы. Строки постоянные,
+// пользовательских данных в них нет, поэтому их можно вставлять разметкой.
+const platformIcons = {
+  whatsapp:
+    '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 4.5a7.5 7.5 0 0 0-6.5 11.2l-1 3.8 3.9-1A7.5 7.5 0 1 0 12 4.5z"></path></svg>',
+  telegram:
+    '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M20.5 4.5L3.5 11.2l5.6 2.1 2.1 6.2 3.1-3.9 4.3 3.1z"></path><path d="M9.1 13.3l11.4-8.8"></path></svg>',
+  instagram:
+    '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4.5" y="4.5" width="15" height="15" rx="4.5"></rect><circle cx="12" cy="12" r="3.6"></circle><circle cx="16.6" cy="7.4" r="0.7" fill="currentColor"></circle></svg>'
+};
 
-function createPlatformIcon(platform) {
-  const glyph = document.createElement("span");
-  glyph.className = `platformGlyph ${platform}`;
-  glyph.setAttribute("aria-hidden", "true");
-  return glyph;
+const moreIcon =
+  '<svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="18" cy="12" r="1.6"></circle></svg>';
+
+function el(tag, className, text) {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (text !== undefined) element.textContent = text;
+  return element;
 }
 
 function platformName(platform) {
@@ -106,126 +142,305 @@ function platformName(platform) {
   return "Instagram";
 }
 
-function renderAccounts() {
-  accountCount.textContent = subtitleText();
+function platformTile(platform, size = "") {
+  const tile = el("span", `tile ${platform} ${size}`.trim());
+  tile.innerHTML = platformIcons[platform] || platformIcons.instagram;
+  return tile;
+}
 
-  if (accounts.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "emptyAccounts";
-    empty.textContent = "Добавьте первый мессенджер";
-    accountList.replaceChildren(empty);
-    if (!settingsBackdrop.hidden) {
-      renderManagementAccounts();
-    }
-    pageTitle.textContent = "Messenger Hub";
-    pageUrl.textContent = "Добавьте WhatsApp, Telegram или Instagram";
-    return;
-  }
+function hasPhone(platform) {
+  return platform === "whatsapp" || platform === "telegram";
+}
 
-  accountList.replaceChildren(
-    ...accounts.map((account) => {
-      const status = accountStatuses[account.id] || "ready";
-      const row = document.createElement("div");
-      row.className = `account ${account.platform} status-${status}${account.id === activeAccountId ? " active" : ""}`;
-      row.role = "button";
-      row.tabIndex = 0;
-      row.draggable = true;
-      row.dataset.accountId = account.id;
-      row.title = statusNote(account.id) || "Перетащите, чтобы изменить порядок";
+function pluralize(count, one, few, many) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
+}
 
-      const icon = document.createElement("div");
-      icon.className = "accountIcon";
-      icon.append(createPlatformIcon(account.platform));
+function badgeText(count) {
+  return count > 99 ? "99+" : String(count);
+}
 
-      // В компактном режиме подпись под названием скрыта, поэтому состояние
-      // дублируется точкой на иконке — её видно всегда.
-      const statusDot = document.createElement("span");
-      statusDot.className = "statusDot";
-      statusDot.setAttribute("aria-hidden", "true");
-      icon.append(statusDot);
+// ───────────── Состояние ─────────────
 
-      const text = document.createElement("div");
-      text.className = "accountText";
-      const label = document.createElement("strong");
-      label.textContent = account.label;
-      const detail = document.createElement("span");
-      detail.textContent = accountSubtitle(account);
-      text.append(label, detail);
-
-      const more = document.createElement("button");
-      more.className = "accountMore";
-      more.type = "button";
-      more.title = "Действия";
-      more.textContent = "⋯";
-      more.addEventListener("click", (event) => {
-        event.stopPropagation();
-        openAccountMenu(account);
-      });
-
-      const unread = unreadCounts[account.id] || 0;
-      const badge = document.createElement("span");
-      badge.className = "unreadBadge";
-      badge.textContent = unread > 99 ? "99+" : String(unread);
-      badge.hidden = unread === 0;
-
-      row.append(icon, text, badge, more);
-      row.addEventListener("click", () => {
-        if (didDragAccount) {
-          didDragAccount = false;
-          return;
-        }
-        void window.messengerShell.selectAccount(account.id);
-      });
-      row.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          void window.messengerShell.selectAccount(account.id);
-        }
-      });
-      row.addEventListener("dragstart", (event) => {
-        draggedAccountId = account.id;
-        didDragAccount = true;
-        row.classList.add("dragging");
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", account.id);
-      });
-      row.addEventListener("dragenter", () => {
-        if (draggedAccountId && draggedAccountId !== account.id) {
-          row.classList.add("dragOver");
-        }
-      });
-      row.addEventListener("dragover", (event) => {
-        if (!draggedAccountId || draggedAccountId === account.id) {
-          return;
-        }
-
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-      });
-      row.addEventListener("dragleave", () => {
-        row.classList.remove("dragOver");
-      });
-      row.addEventListener("drop", (event) => {
-        event.preventDefault();
-        row.classList.remove("dragOver");
-        void reorderDraggedAccount(account.id, event.clientX, row.getBoundingClientRect());
-      });
-      row.addEventListener("dragend", () => {
-        row.classList.remove("dragging");
-        clearDragState();
-      });
-
-      return row;
-    })
+// Главному процессу достаточно знать, открыто ли что-то поверх страницы: он
+// прячет вкладку аккаунта целиком, потому что она рисуется поверх оболочки.
+function isOverlayOpen() {
+  return [commandBackdrop, settingsBackdrop, addBackdrop, editBackdrop, onboardingBackdrop].some(
+    (element) => !element.hidden
   );
+}
+
+function syncOverlay() {
+  void window.messengerShell.setOverlayOpen(isOverlayOpen());
+}
+
+function applyState(state) {
+  accounts = state.accounts || accounts;
+  activeAccountId = state.activeAccountId;
+  unreadCounts = state.unreadCounts || {};
+  accountStatuses = state.accountStatuses || accountStatuses;
+  accountRetries = state.accountRetries || {};
+  settings = state.settings || settings;
+  currentSettingsPath = state.settingsPath || currentSettingsPath;
+  currentGlobalShortcut = state.globalShortcut || currentGlobalShortcut;
+  currentUpdateStatus = state.updateStatus || currentUpdateStatus;
+  appVersion = state.appVersion || appVersion;
+  isDevToolsEnabled = Boolean(state.isDevToolsEnabled);
+
+  applySettingsMode();
+  renderSidebar();
+  renderContent();
+  syncTaskbarBadge(state.taskbarBadge);
 
   if (!settingsBackdrop.hidden) {
-    renderManagementAccounts();
+    renderSettingsLive();
   }
 }
 
+function applySettingsMode() {
+  document.body.classList.toggle("compactMode", Boolean(settings.compactMode));
+}
+
+// ───────────── Боковая панель ─────────────
+
+// Что показать под названием аккаунта. Пока страница не поднялась — именно
+// это, а не номер: «нет связи» и «выкинуло из аккаунта» со стороны выглядят
+// одинаково, и различить их — половина решения проблемы.
+function accountState(account) {
+  const status = accountStatuses[account.id] || "ready";
+
+  if (status === "offline") {
+    const retry = accountRetries[account.id];
+    if (retry?.at) {
+      const seconds = Math.ceil((retry.at - Date.now()) / 1000);
+      return {
+        sub: seconds > 0 ? `Нет связи · повтор через ${seconds} с` : "Подключаюсь…",
+        tone: "warn",
+        dot: "offline"
+      };
+    }
+    return { sub: "Страница не отвечает", tone: "error", dot: "error" };
+  }
+
+  if (status === "loading") return { sub: "Загружается…", dot: "busy" };
+  if (status === "idle") return { sub: "В очереди на загрузку", queued: true };
+
+  return {
+    sub: account.phone && hasPhone(account.platform)
+      ? `${platformName(account.platform)} · ${account.phone}`
+      : platformName(account.platform)
+  };
+}
+
+function renderSidebar() {
+  const total = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
+  const countText = `${accounts.length} ${pluralize(accounts.length, "аккаунт", "аккаунта", "аккаунтов")}`;
+  workspaceLine.textContent = settings.operatorName
+    ? `${settings.operatorName} · ${countText}`
+    : countText;
+  unreadLine.textContent =
+    total > 0 ? `${total} ${pluralize(total, "непрочитанное", "непрочитанных", "непрочитанных")}` : "";
+
+  const compact = Boolean(settings.compactMode);
+  collapseButton.setAttribute("aria-label", compact ? "Развернуть панель" : "Свернуть панель");
+  collapseButton.title = compact ? "Развернуть панель" : "Свернуть панель";
+  collapseArrow.setAttribute("d", compact ? "M13 10l2 2-2 2" : "M15 10l-2 2 2 2");
+  searchKbd.textContent = `${modKey}K`;
+  searchButton.title = compact ? `Перейти к аккаунту (${modKey}K)` : "";
+  addButton.title = compact ? "Добавить аккаунт" : "";
+  lockButton.hidden = !settings.pinEnabled;
+
+  if (accounts.length === 0) {
+    accountList.replaceChildren(el("p", "emptyAccounts", "Добавьте первый аккаунт кнопкой внизу."));
+    return;
+  }
+
+  accountList.replaceChildren(...accounts.map(renderAccountItem));
+}
+
+function renderAccountItem(account, index) {
+  const state = accountState(account);
+  const unread = unreadCounts[account.id] || 0;
+  const muted = account.notificationsEnabled === false;
+  const isActive = account.id === activeAccountId;
+
+  const row = el("button", `account${isActive ? " active" : ""}${state.queued ? " queued" : ""}`);
+  row.type = "button";
+  row.draggable = true;
+  row.dataset.accountId = account.id;
+  if (isActive) row.setAttribute("aria-current", "page");
+  row.setAttribute(
+    "aria-label",
+    `${account.label}, ${state.sub}${unread ? `, ${unread} ${pluralize(unread, "непрочитанное", "непрочитанных", "непрочитанных")}` : ""}`
+  );
+  // Свернутую панель видно только значками: название и состояние — в системной
+  // подсказке. Своя подсказка не годится: её закрыла бы страница мессенджера.
+  row.title = settings.compactMode
+    ? `${account.label} — ${state.sub}${unread ? ` · непрочитанных: ${unread}` : ""}${index < 9 ? ` · ${modKey}${index + 1}` : ""}`
+    : "";
+
+  const tile = platformTile(account.platform);
+  if (state.dot) tile.append(el("span", `statusDot ${state.dot}`));
+  if (unread > 0) tile.append(el("span", `railBadge${muted ? " muted" : ""}`, badgeText(unread)));
+
+  const text = el("span", "accountText");
+  text.append(
+    el("span", "accountName", account.label),
+    el("span", `accountSub${state.tone ? ` ${state.tone}` : ""}`, state.sub)
+  );
+
+  row.append(tile, text);
+  if (unread > 0) row.append(el("span", `badge${muted ? " muted" : ""}`, badgeText(unread)));
+
+  row.addEventListener("click", () => {
+    void window.messengerShell.selectAccount(account.id);
+  });
+  row.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    void window.messengerShell.openAccountMenu(account.id);
+  });
+  bindDrag(row, account.id);
+
+  return row;
+}
+
+// Отсчёт «повтор через N с» обновляется раз в секунду точечно: пересборка
+// списка сбила бы перетаскивание и наведение.
+function refreshCountdowns() {
+  const offline = accounts.filter((account) => accountRetries[account.id]?.at);
+
+  for (const account of offline) {
+    const sub = accountList.querySelector(`[data-account-id="${CSS.escape(account.id)}"] .accountSub`);
+    if (sub) sub.textContent = accountState(account).sub;
+  }
+
+  if (offline.some((account) => account.id === activeAccountId)) {
+    renderContent();
+  }
+}
+
+// ───────────── Перетаскивание ─────────────
+
+function bindDrag(row, accountId) {
+  row.addEventListener("dragstart", (event) => {
+    draggedAccountId = accountId;
+    row.classList.add("dragging");
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", accountId);
+  });
+
+  row.addEventListener("dragover", (event) => {
+    if (!draggedAccountId || draggedAccountId === accountId) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    const after = isLowerHalf(event, row);
+    row.classList.toggle("dropAfter", after);
+    row.classList.toggle("dropBefore", !after);
+  });
+
+  row.addEventListener("dragleave", () => {
+    row.classList.remove("dropBefore", "dropAfter");
+  });
+
+  row.addEventListener("drop", (event) => {
+    event.preventDefault();
+    const after = isLowerHalf(event, row);
+    row.classList.remove("dropBefore", "dropAfter");
+    void reorderDraggedAccount(accountId, after);
+  });
+
+  row.addEventListener("dragend", clearDragState);
+}
+
+function isLowerHalf(event, row) {
+  const rect = row.getBoundingClientRect();
+  return event.clientY > rect.top + rect.height / 2;
+}
+
+async function reorderDraggedAccount(targetAccountId, placeAfter) {
+  if (!draggedAccountId || draggedAccountId === targetAccountId) {
+    clearDragState();
+    return;
+  }
+
+  const next = accounts.filter((account) => account.id !== draggedAccountId);
+  const dragged = accounts.find((account) => account.id === draggedAccountId);
+  const targetIndex = next.findIndex((account) => account.id === targetAccountId);
+
+  if (!dragged || targetIndex < 0) {
+    clearDragState();
+    return;
+  }
+
+  next.splice(targetIndex + (placeAfter ? 1 : 0), 0, dragged);
+  accounts = next;
+  clearDragState();
+  renderSidebar();
+
+  const state = await window.messengerShell.reorderAccounts(next.map((account) => account.id));
+  accounts = state.accounts;
+  renderSidebar();
+}
+
+function clearDragState() {
+  draggedAccountId = undefined;
+  accountList.querySelectorAll(".dragging, .dropBefore, .dropAfter").forEach((row) => {
+    row.classList.remove("dragging", "dropBefore", "dropAfter");
+  });
+}
+
+// ───────────── Область мессенджера ─────────────
+
+// Видна, только когда страница мессенджера спрятана: аккаунтов нет или у
+// открытого аккаунта нет связи.
+function renderContent() {
+  const active = accounts.find((account) => account.id === activeAccountId);
+  const isOffline = Boolean(active) && accountStatuses[active.id] === "offline";
+
+  emptyScreen.hidden = accounts.length > 0;
+  offlineScreen.hidden = !isOffline;
+
+  if (!isOffline) {
+    return;
+  }
+
+  const name = platformName(active.platform);
+  const retry = accountRetries[active.id] || {};
+  const relogin = active.platform === "instagram" ? "входить заново" : "сканировать QR-код заново";
+
+  if (retry.at) {
+    const seconds = Math.ceil((retry.at - Date.now()) / 1000);
+    offlineTitle.textContent = `Нет связи с ${name}`;
+    offlineText.textContent = `${
+      seconds > 0
+        ? `Аккаунт «${active.label}» переподключится сам через ${seconds} с.`
+        : `Аккаунт «${active.label}» переподключается.`
+    } Сессия входа сохранена — ${relogin} не придётся.`;
+  } else {
+    offlineTitle.textContent = "Страница аккаунта не поднимается";
+    offlineText.textContent = `Страница «${active.label}» несколько раз подряд закрылась с ошибкой. Нажмите «Повторить сейчас» — вход при этом сохранится.`;
+  }
+
+  offlineMeta.textContent = [retry.attempt ? `Попытка ${retry.attempt}` : "", retry.error || ""]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+// ───────────── Быстрый переход ─────────────
+
 function openCommandPalette() {
-  closeModal();
+  if (isLocked) {
+    return;
+  }
+
+  closeAddModal();
   closeSettings();
   closeEdit();
   commandInput.value = "";
@@ -233,82 +448,87 @@ function openCommandPalette() {
     0,
     accounts.findIndex((account) => account.id === activeAccountId)
   );
+  commandShortcutHint.replaceChildren(
+    el("kbd", "", `${modKey}1`),
+    document.createTextNode("–"),
+    el("kbd", "", `${modKey}9`),
+    document.createTextNode(" сразу к аккаунту")
+  );
   commandBackdrop.hidden = false;
   renderCommandResults();
   syncOverlay();
   commandInput.focus();
-  commandInput.select();
 }
 
 function closeCommandPalette() {
+  if (commandBackdrop.hidden) return;
   commandBackdrop.hidden = true;
   commandInput.value = "";
   commandMatches = [];
-  commandSelectedIndex = 0;
   syncOverlay();
-}
-
-function renderCommandResults() {
-  const query = commandInput.value.trim().toLowerCase();
-  commandMatches = accounts.filter((account) => commandSearchText(account).includes(query));
-
-  if (commandMatches.length === 0) {
-    commandSelectedIndex = 0;
-    const empty = document.createElement("div");
-    empty.className = "commandEmpty";
-    empty.textContent = "Ничего не найдено";
-    commandResults.replaceChildren(empty);
-    return;
-  }
-
-  commandSelectedIndex = Math.min(commandSelectedIndex, commandMatches.length - 1);
-  commandResults.replaceChildren(
-    ...commandMatches.map((account, index) => {
-      const row = document.createElement("button");
-      row.className = `commandResult ${account.platform}${index === commandSelectedIndex ? " selected" : ""}`;
-      row.type = "button";
-      row.dataset.accountId = account.id;
-
-      const icon = document.createElement("div");
-      icon.className = "accountIcon";
-      icon.append(createPlatformIcon(account.platform));
-
-      const text = document.createElement("div");
-      text.className = "commandResultText";
-      const title = document.createElement("strong");
-      title.textContent = account.label;
-      const meta = document.createElement("span");
-      meta.textContent = `${platformName(account.platform)} · ${accountSubtitle(account)}`;
-      text.append(title, meta);
-
-      const hint = document.createElement("span");
-      hint.className = "commandHint";
-      hint.textContent = account.id === activeAccountId ? "Открыт" : "Enter";
-
-      row.append(icon, text, hint);
-      row.addEventListener("mouseenter", () => {
-        commandSelectedIndex = index;
-        renderCommandResults();
-      });
-      row.addEventListener("click", () => {
-        void selectCommandAccount(account.id);
-      });
-      return row;
-    })
-  );
 }
 
 function commandSearchText(account) {
   return [
     account.label,
     account.phone,
-    account.platform,
-    platformName(account.platform),
-    account.id
+    String(account.phone || "").replace(/\D/g, ""),
+    platformName(account.platform)
   ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
+}
+
+function renderCommandResults() {
+  const query = commandInput.value.trim().toLowerCase().replace(/^\+/, "");
+  commandMatches = accounts.filter((account) => commandSearchText(account).includes(query));
+
+  if (commandMatches.length === 0) {
+    commandSelectedIndex = 0;
+    commandResults.replaceChildren(el("p", "commandEmpty", "Ничего не нашлось"));
+    return;
+  }
+
+  commandSelectedIndex = Math.min(commandSelectedIndex, commandMatches.length - 1);
+  commandResults.replaceChildren(
+    ...commandMatches.map((account, index) => {
+      const state = accountState(account);
+      const unread = unreadCounts[account.id] || 0;
+      const position = accounts.indexOf(account);
+      const selected = index === commandSelectedIndex;
+
+      const row = el("button", `commandResult${selected ? " selected" : ""}`);
+      row.type = "button";
+      row.setAttribute("role", "option");
+      row.setAttribute("aria-selected", String(selected));
+
+      const text = el("span", "accountText");
+      text.append(
+        el("span", "accountName", account.label),
+        el("span", `accountSub${state.tone ? ` ${state.tone}` : ""}`, state.sub)
+      );
+
+      row.append(platformTile(account.platform, "small"), text);
+      if (unread > 0) {
+        row.append(el("span", `badge${account.notificationsEnabled === false ? " muted" : ""}`, badgeText(unread)));
+      }
+      if (position < 9) {
+        row.append(el("kbd", "", `${modKey}${position + 1}`));
+      }
+
+      row.addEventListener("mouseenter", () => {
+        if (commandSelectedIndex !== index) {
+          commandSelectedIndex = index;
+          renderCommandResults();
+        }
+      });
+      row.addEventListener("click", () => void selectCommandAccount(account.id));
+      return row;
+    })
+  );
+
+  commandResults.querySelector(".selected")?.scrollIntoView({ block: "nearest" });
 }
 
 async function selectCommandAccount(accountId = commandMatches[commandSelectedIndex]?.id) {
@@ -320,265 +540,6 @@ async function selectCommandAccount(accountId = commandMatches[commandSelectedIn
   await window.messengerShell.selectAccount(accountId);
 }
 
-function renderManagementAccounts() {
-  managementAccountCount.textContent = `${accounts.length}`;
-  managementAccounts.replaceChildren(
-    ...accounts.map((account, index) => {
-      const row = document.createElement("div");
-      row.className = `managementAccount ${account.platform}${account.id === activeAccountId ? " active" : ""}${account.notificationsEnabled === false ? " muted" : ""}`;
-      row.dataset.accountId = account.id;
-
-      const icon = document.createElement("div");
-      icon.className = "accountIcon";
-      icon.append(createPlatformIcon(account.platform));
-
-      const text = document.createElement("div");
-      text.className = "managementAccountText";
-      const title = document.createElement("strong");
-      title.textContent = account.label;
-      const meta = document.createElement("span");
-      meta.textContent = `${platformName(account.platform)} · ${accountSubtitle(account)}${account.notificationsEnabled === false ? " · уведомления выкл." : ""}`;
-      text.append(title, meta);
-
-      const shortcut = document.createElement("span");
-      shortcut.className = "shortcutHint";
-      shortcut.textContent = index < 9 ? `Cmd+${index + 1}` : "";
-
-      const actions = document.createElement("div");
-      actions.className = "managementActions";
-      actions.append(
-        createManagementButton("Открыть", "select"),
-        createManagementButton("Ред.", "edit"),
-        createManagementButton(
-          account.notificationsEnabled === false ? "Вкл. увед." : "Без увед.",
-          "notifications"
-        ),
-        createManagementButton("Удал.+вход", "clear", "danger"),
-        createManagementButton("Удалить", "delete", "danger")
-      );
-
-      row.append(icon, text, shortcut, actions);
-      return row;
-    })
-  );
-}
-
-function createManagementButton(label, action, tone = "") {
-  const button = document.createElement("button");
-  button.className = `miniButton ${tone}`;
-  button.type = "button";
-  button.dataset.action = action;
-  button.textContent = label;
-  return button;
-}
-
-accountList.addEventListener("dragover", (event) => {
-  if (!draggedAccountId) {
-    return;
-  }
-
-  event.preventDefault();
-  event.dataTransfer.dropEffect = "move";
-});
-
-accountList.addEventListener("drop", (event) => {
-  if (!draggedAccountId || event.target.closest?.(".account")) {
-    return;
-  }
-
-  event.preventDefault();
-  const lastAccount = accounts.at(-1);
-  if (lastAccount) {
-    void reorderDraggedAccount(lastAccount.id, Number.POSITIVE_INFINITY);
-  }
-});
-
-async function reorderDraggedAccount(targetAccountId, pointerX, targetRect) {
-  if (!draggedAccountId || draggedAccountId === targetAccountId) {
-    clearDragState();
-    return;
-  }
-
-  const nextAccounts = [...accounts];
-  const fromIndex = nextAccounts.findIndex((account) => account.id === draggedAccountId);
-  const targetIndex = nextAccounts.findIndex((account) => account.id === targetAccountId);
-
-  if (fromIndex < 0 || targetIndex < 0) {
-    clearDragState();
-    return;
-  }
-
-  const [draggedAccount] = nextAccounts.splice(fromIndex, 1);
-  const adjustedTargetIndex = nextAccounts.findIndex((account) => account.id === targetAccountId);
-  const shouldPlaceAfter = targetRect
-    ? pointerX > targetRect.left + targetRect.width / 2
-    : true;
-  const insertIndex = adjustedTargetIndex + (shouldPlaceAfter ? 1 : 0);
-  nextAccounts.splice(insertIndex, 0, draggedAccount);
-
-  accounts = nextAccounts;
-  renderAccounts();
-
-  const state = await window.messengerShell.reorderAccounts(
-    nextAccounts.map((account) => account.id)
-  );
-  accounts = state.accounts;
-  activeAccountId = state.activeAccountId;
-  unreadCounts = state.unreadCounts || {};
-  settings = state.settings || settings;
-  renderAccounts();
-  clearDragState();
-}
-
-function clearDragState() {
-  draggedAccountId = undefined;
-  document.querySelectorAll(".account.dragOver, .account.dragging").forEach((row) => {
-    row.classList.remove("dragOver", "dragging");
-  });
-  setTimeout(() => {
-    didDragAccount = false;
-  }, 120);
-}
-
-function editAccount(account) {
-  editingAccountId = account.id;
-  editLabelInput.value = account.label;
-  editPhoneInput.value = account.phone || "";
-  editPhoneField.hidden = account.platform !== "whatsapp";
-  editBackdrop.hidden = false;
-  syncOverlay();
-  editLabelInput.focus();
-  editLabelInput.select();
-}
-
-function openAccountMenu(account) {
-  void window.messengerShell.openAccountMenu(account.id);
-}
-
-function accountSubtitle(account) {
-  const status = statusNote(account.id);
-  if (status) {
-    return status;
-  }
-
-  if (account.platform === "whatsapp") {
-    return account.phone || "номер не задан";
-  }
-
-  return account.platform;
-}
-
-// Пока страница не поднялась, показываем именно это, а не номер телефона:
-// «нет связи» и «выкинуло из аккаунта» со стороны выглядят одинаково,
-// и различить их — половина решения проблемы.
-function statusNote(accountId) {
-  const status = accountStatuses[accountId];
-  if (status === "offline") return "нет связи, переподключаюсь";
-  if (status === "loading") return "загружается…";
-  if (status === "idle") return "в очереди на загрузку";
-  return "";
-}
-
-async function init() {
-  const state = await window.messengerShell.getAccounts();
-  accounts = state.accounts;
-  activeAccountId = state.activeAccountId;
-  unreadCounts = state.unreadCounts || {};
-  accountStatuses = state.accountStatuses || {};
-  settings = state.settings || {};
-  currentSettingsPath = state.settingsPath || "";
-  currentGlobalShortcut = state.globalShortcut || {};
-  currentPlatform = state.platform || currentPlatform;
-  currentUpdateStatus = state.updateStatus || {};
-  appVersion = state.appVersion || "";
-  devtoolsButton.hidden = !state.isDevToolsEnabled;
-  applySettingsMode();
-  renderAccounts();
-  maybeOpenOnboarding();
-  syncTaskbarBadge(state.taskbarBadge);
-  if (settings.pinEnabled) {
-    showLock();
-  }
-}
-
-window.messengerShell.onAccountChanged((state) => {
-  activeAccountId = state.activeAccountId;
-  renderAccounts();
-});
-
-window.messengerShell.onAccountListChanged((state) => {
-  accounts = state.accounts;
-  activeAccountId = state.activeAccountId;
-  unreadCounts = state.unreadCounts || {};
-  accountStatuses = state.accountStatuses || {};
-  settings = state.settings || settings;
-  currentSettingsPath = state.settingsPath || currentSettingsPath;
-  currentGlobalShortcut = state.globalShortcut || currentGlobalShortcut;
-  currentPlatform = state.platform || currentPlatform;
-  currentUpdateStatus = state.updateStatus || currentUpdateStatus;
-  appVersion = state.appVersion || appVersion;
-  devtoolsButton.hidden = !state.isDevToolsEnabled;
-  applySettingsMode();
-  renderAccounts();
-  updateStatusText.textContent = currentUpdateStatus.message || "";
-  syncTaskbarBadge(state.taskbarBadge);
-});
-
-window.messengerShell.onNavigationChanged((state) => {
-  pageTitle.textContent = state.title || "Loading";
-  pageUrl.textContent = state.url || "";
-  backButton.disabled = !state.canGoBack;
-  forwardButton.disabled = !state.canGoForward;
-});
-
-window.messengerShell.onCommandOpen(() => {
-  openCommandPalette();
-});
-
-window.messengerShell.onAccountEditRequested(({ accountId }) => {
-  const account = accounts.find((item) => item.id === accountId);
-  if (account) {
-    editAccount(account);
-  }
-});
-
-window.messengerShell.onSecurityLock(() => {
-  showLock();
-});
-
-backButton.addEventListener("click", () => {
-  void window.messengerShell.goBack();
-});
-
-forwardButton.addEventListener("click", () => {
-  void window.messengerShell.goForward();
-});
-
-reloadButton.addEventListener("click", () => {
-  void window.messengerShell.reload();
-});
-
-devtoolsButton.addEventListener("click", () => {
-  void window.messengerShell.openDevTools();
-});
-
-document.addEventListener("keydown", (event) => {
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-    event.preventDefault();
-    openCommandPalette();
-    return;
-  }
-
-  if (event.key !== "Escape") {
-    return;
-  }
-
-  if (!commandBackdrop.hidden) closeCommandPalette();
-  if (!modalBackdrop.hidden) closeModal();
-  if (!settingsBackdrop.hidden) closeSettings();
-  if (!editBackdrop.hidden) closeEdit();
-});
-
 commandInput.addEventListener("input", () => {
   commandSelectedIndex = 0;
   renderCommandResults();
@@ -589,83 +550,105 @@ commandInput.addEventListener("keydown", (event) => {
     event.preventDefault();
     commandSelectedIndex = Math.min(commandSelectedIndex + 1, commandMatches.length - 1);
     renderCommandResults();
-    return;
-  }
-
-  if (event.key === "ArrowUp") {
+  } else if (event.key === "ArrowUp") {
     event.preventDefault();
     commandSelectedIndex = Math.max(commandSelectedIndex - 1, 0);
     renderCommandResults();
-    return;
-  }
-
-  if (event.key === "Enter") {
+  } else if (event.key === "Enter") {
     event.preventDefault();
     void selectCommandAccount();
-    return;
-  }
-
-  if (event.key === "Escape") {
+  } else if (event.key === "Escape") {
     event.preventDefault();
     closeCommandPalette();
   }
 });
 
 commandBackdrop.addEventListener("click", (event) => {
-  if (event.target === commandBackdrop) {
-    closeCommandPalette();
-  }
+  if (event.target === commandBackdrop) closeCommandPalette();
 });
 
-managementAccounts.addEventListener("click", async (event) => {
-  const button = event.target.closest("button[data-action]");
-  const row = event.target.closest(".managementAccount");
+// ───────────── Новый аккаунт ─────────────
 
-  if (!button || !row) {
+function selectedPlatform() {
+  return addForm.elements.platform.value || "whatsapp";
+}
+
+function openAddModal() {
+  if (isLocked) {
     return;
   }
 
-  const account = accounts.find((item) => item.id === row.dataset.accountId);
-  if (!account) {
-    return;
-  }
+  closeCommandPalette();
+  closeSettings();
+  addForm.reset();
+  updateAddForm();
+  addBackdrop.hidden = false;
+  syncOverlay();
+  labelInput.focus();
+}
 
-  const action = button.dataset.action;
-  if (action === "select") {
-    await window.messengerShell.selectAccount(account.id);
-    return;
-  }
+function closeAddModal() {
+  if (addBackdrop.hidden) return;
+  addBackdrop.hidden = true;
+  syncOverlay();
+}
 
-  if (action === "edit") {
-    closeSettings();
-    editAccount(account);
-    return;
-  }
+function updateAddForm() {
+  const platform = selectedPlatform();
+  const name = platformName(platform);
+  phoneField.hidden = !hasPhone(platform);
+  labelInput.placeholder = `Например, ${name} — поддержка`;
+  addNote.textContent =
+    platform === "instagram"
+      ? "Дальше откроется страница входа Instagram: введите логин и пароль. Это нужно один раз — потом вход сохраняется."
+      : `Дальше откроется страница входа ${name}: отсканируйте QR-код телефоном. Это нужно один раз — потом вход сохраняется.`;
+}
 
-  if (action === "notifications") {
-    await toggleAccountNotifications(account);
-    return;
-  }
-
-  if (action === "clear") {
-    await window.messengerShell.requestRemoveAccount(account.id, { clearSession: true });
-    return;
-  }
-
-  if (action === "delete") {
-    await window.messengerShell.requestRemoveAccount(account.id, { clearSession: false });
-  }
+addForm.addEventListener("change", (event) => {
+  if (event.target.name === "platform") updateAddForm();
 });
 
-editCancelButton.addEventListener("click", () => {
-  closeEdit();
+addForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const platform = selectedPlatform();
+  const state = await window.messengerShell.addAccount({
+    platform,
+    label: labelInput.value.trim() || platformName(platform),
+    phone: hasPhone(platform) ? phoneInput.value.trim() : ""
+  });
+
+  closeAddModal();
+  applyState(state);
 });
 
-editBackdrop.addEventListener("click", (event) => {
-  if (event.target === editBackdrop) {
-    closeEdit();
-  }
+addCancelButton.addEventListener("click", closeAddModal);
+addBackdrop.addEventListener("click", (event) => {
+  if (event.target === addBackdrop) closeAddModal();
 });
+addButton.addEventListener("click", openAddModal);
+emptyAddButton.addEventListener("click", openAddModal);
+
+// ───────────── Редактирование аккаунта ─────────────
+
+function editAccount(account) {
+  closeSettings();
+  editingAccountId = account.id;
+  editLabelInput.value = account.label;
+  editPhoneInput.value = account.phone || "";
+  editPhoneField.hidden = !hasPhone(account.platform);
+  editBackdrop.hidden = false;
+  syncOverlay();
+  editLabelInput.focus();
+  editLabelInput.select();
+}
+
+function closeEdit() {
+  if (editBackdrop.hidden) return;
+  editBackdrop.hidden = true;
+  editingAccountId = undefined;
+  editForm.reset();
+  syncOverlay();
+}
 
 editForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -677,236 +660,446 @@ editForm.addEventListener("submit", async (event) => {
 
   const state = await window.messengerShell.updateAccount(account.id, {
     label: editLabelInput.value.trim() || account.label,
-    phone: account.platform === "whatsapp" ? editPhoneInput.value.trim() : ""
+    phone: hasPhone(account.platform) ? editPhoneInput.value.trim() : ""
   });
 
-  accounts = state.accounts;
-  activeAccountId = state.activeAccountId;
-  unreadCounts = state.unreadCounts || {};
-  settings = state.settings || settings;
-  renderAccounts();
   closeEdit();
+  applyState(state);
 });
 
-addButton.addEventListener("click", () => {
-  openAddMessenger();
+editCancelButton.addEventListener("click", closeEdit);
+editBackdrop.addEventListener("click", (event) => {
+  if (event.target === editBackdrop) closeEdit();
 });
 
-settingsButton.addEventListener("click", () => {
+// ───────────── Настройки ─────────────
+
+function openSettings(tab = "accounts") {
+  if (isLocked) {
+    return;
+  }
+
+  closeCommandPalette();
+  closeAddModal();
   renderSettingsForm();
+  setSettingsTab(tab);
   settingsBackdrop.hidden = false;
   syncOverlay();
-  startAccountInput.focus();
-});
+}
 
-settingsCancelButton.addEventListener("click", () => {
-  closeSettings();
-});
+function closeSettings() {
+  if (settingsBackdrop.hidden) return;
+  settingsBackdrop.hidden = true;
+  syncOverlay();
+}
 
-openSettingsFileButton.addEventListener("click", () => {
-  void window.messengerShell.showSettingsFile();
-});
+function setSettingsTab(tab) {
+  settingsTabs.forEach((button) => {
+    const active = button.dataset.tab === tab;
+    button.classList.toggle("active", active);
+    if (active) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+  settingsPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.panel !== tab;
+  });
+  pinMessage.hidden = true;
+}
 
-openLogsButton.addEventListener("click", () => {
-  void window.messengerShell.showLogs();
-});
+// Значения полей — только при открытии: иначе каждая рассылка состояния
+// (а она приходит при любом новом сообщении) затирала бы то, что сейчас печатают.
+function renderSettingsForm() {
+  notificationsInput.checked = settings.notificationsEnabled !== false;
+  messagePreviewsInput.checked = settings.messagePreviewsEnabled !== false;
+  lockAfterInput.value = String(lockAfterMinutesValue(settings.lockAfterMinutes));
+  operatorNameInput.value = settings.operatorName || "";
+  themeInput.value = ["light", "dark"].includes(settings.theme) ? settings.theme : "system";
+  compactModeInput.checked = Boolean(settings.compactMode);
+  launchAtLoginInput.checked = Boolean(settings.launchAtLogin);
+  backgroundInput.checked = settings.keepInBackground !== false;
+  globalShortcutInput.checked = settings.globalShortcutEnabled !== false;
+  currentPinInput.value = "";
+  newPinInput.value = "";
+  renderSettingsLive();
+}
 
-// Ошибки страницы оболочки живут в отдельном процессе и в файл сами не попадут.
-// Без этого падение интерфейса выглядело бы как «просто перестало работать».
-window.addEventListener("error", (event) => {
-  window.messengerShell.reportError(
-    "ERROR",
-    `${event.message} (${event.filename}:${event.lineno})`
+function renderSettingsLive() {
+  renderSettingsAccounts();
+  renderStartAccountOptions();
+  renderPinSection();
+  renderGlobalShortcut();
+  renderAbout();
+  compactModeInput.checked = Boolean(settings.compactMode);
+}
+
+function renderSettingsAccounts() {
+  if (accounts.length === 0) {
+    settingsAccounts.replaceChildren(el("p", "settingDesc", "Аккаунтов пока нет."));
+    return;
+  }
+
+  settingsAccounts.replaceChildren(
+    ...accounts.map((account) => {
+      const row = el("div", "settingsAccount");
+      const muted = account.notificationsEnabled === false;
+
+      const text = el("span", "accountText");
+      text.append(
+        el("span", "accountName", account.label),
+        el(
+          "span",
+          "accountSub",
+          account.phone && hasPhone(account.platform)
+            ? `${platformName(account.platform)} · ${account.phone}`
+            : platformName(account.platform)
+        )
+      );
+
+      const switchLabel = el("label", "switchLabel", "Уведомления");
+      const toggle = el("input", "switch");
+      toggle.type = "checkbox";
+      toggle.checked = !muted;
+      toggle.setAttribute("aria-label", `Уведомления «${account.label}»`);
+      toggle.addEventListener("change", async () => {
+        applyState(
+          await window.messengerShell.updateAccount(account.id, {
+            notificationsEnabled: toggle.checked
+          })
+        );
+      });
+      switchLabel.append(toggle);
+
+      const more = el("button", "iconButton");
+      more.type = "button";
+      more.innerHTML = moreIcon;
+      more.setAttribute("aria-label", `Действия с «${account.label}»`);
+      more.title = "Переименовать, удалить, очистить вход";
+      more.addEventListener("click", () => void window.messengerShell.openAccountMenu(account.id));
+
+      row.append(platformTile(account.platform, "small"), text, switchLabel, more);
+      return row;
+    })
   );
-});
+}
 
-window.addEventListener("unhandledrejection", (event) => {
-  window.messengerShell.reportError("ERROR", `необработанный отказ: ${event.reason}`);
-});
-
-settingsBackdrop.addEventListener("click", (event) => {
-  if (event.target === settingsBackdrop) {
-    closeSettings();
+function renderStartAccountOptions() {
+  if (document.activeElement === startAccountInput) {
+    return;
   }
+
+  const options = [["", "Последний открытый"], ...accounts.map((account) => [account.id, account.label])];
+  startAccountInput.replaceChildren(
+    ...options.map(([value, label]) => {
+      const option = el("option", "", label);
+      option.value = value;
+      return option;
+    })
+  );
+  startAccountInput.value = accounts.some((account) => account.id === settings.startAccountId)
+    ? settings.startAccountId
+    : "";
+}
+
+function renderPinSection() {
+  const enabled = Boolean(settings.pinEnabled);
+  const minutes = lockAfterMinutesValue(settings.lockAfterMinutes);
+
+  pinStatusText.textContent = enabled
+    ? `Включена: при запуске, скрытии окна, блокировке экрана${minutes > 0 ? ` и после ${minutes} мин. бездействия` : ""}`
+    : "Выключена — задайте PIN ниже, чтобы включить";
+  lockNowButton.hidden = !enabled;
+  lockAfterRow.hidden = !enabled;
+  currentPinField.hidden = !enabled;
+  disablePinButton.hidden = !enabled;
+  pinFormTitle.textContent = enabled ? "Сменить PIN" : "Включить PIN";
+  savePinButton.textContent = enabled ? "Сменить PIN" : "Включить";
+}
+
+function showPinMessage(text, ok) {
+  pinMessage.textContent = text;
+  pinMessage.className = `formMessage ${ok ? "ok" : "error"}`;
+  pinMessage.hidden = false;
+}
+
+function renderGlobalShortcut() {
+  const accelerator = currentGlobalShortcut.accelerator || settings.globalShortcut || "Alt+Space";
+  const requested = currentGlobalShortcut.requested || accelerator;
+  globalShortcutLabel.textContent = `Показывать и скрывать по ${formatAccelerator(requested)}`;
+
+  let text;
+  let tone = "";
+  if (settings.globalShortcutEnabled === false) {
+    text = "Выключено";
+  } else if (!currentGlobalShortcut.registered) {
+    text = `Не удалось занять ни одно сочетание, включая ${formatAccelerator(requested)}: похоже, все они заняты другими программами`;
+    tone = "warn";
+  } else if (accelerator !== requested) {
+    // Запрошенное сочетание оказалось занятым — сработало запасное, и об этом
+    // нужно сказать прямо, иначе клавиша «не работает» без объяснений.
+    text = `${formatAccelerator(requested)} занято другой программой — работает ${formatAccelerator(accelerator)}`;
+    tone = "warn";
+  } else {
+    text = "Сочетание свободно и работает";
+    tone = "ok";
+  }
+
+  globalShortcutStatus.textContent = text;
+  globalShortcutStatus.className = `settingDesc ${tone}`.trim();
+}
+
+function formatAccelerator(accelerator) {
+  // Option — название клавиши только на Mac; на Windows она называется Alt.
+  return currentPlatform === "darwin"
+    ? String(accelerator).replace("Alt", "Option")
+    : String(accelerator);
+}
+
+function renderAbout() {
+  appVersionText.textContent = appVersion ? `Версия ${appVersion}` : "";
+  updateStatusText.textContent = currentUpdateStatus.message || "Обновления ещё не проверялись";
+  updateBox.classList.toggle("ok", currentUpdateStatus.state === "current");
+  checkUpdatesButton.disabled = ["checking", "downloading"].includes(currentUpdateStatus.state);
+  devtoolsButton.hidden = !isDevToolsEnabled;
+  settingsPath.textContent = currentSettingsPath ? `Файл настроек: ${currentSettingsPath}` : "";
+}
+
+// Настройки применяются сразу, без кнопки «Сохранить».
+async function saveSettings(patch) {
+  const state = await window.messengerShell.updateSettings(patch);
+  settings = state.settings || settings;
+  currentSettingsPath = state.settingsPath || currentSettingsPath;
+  currentGlobalShortcut = state.globalShortcut || currentGlobalShortcut;
+  applySettingsMode();
+  renderSidebar();
+  if (!settingsBackdrop.hidden) {
+    renderSettingsLive();
+  }
+}
+
+function bindSwitch(input, key) {
+  input.addEventListener("change", () => void saveSettings({ [key]: input.checked }));
+}
+
+bindSwitch(notificationsInput, "notificationsEnabled");
+bindSwitch(messagePreviewsInput, "messagePreviewsEnabled");
+bindSwitch(compactModeInput, "compactMode");
+bindSwitch(launchAtLoginInput, "launchAtLogin");
+bindSwitch(backgroundInput, "keepInBackground");
+bindSwitch(globalShortcutInput, "globalShortcutEnabled");
+
+themeInput.addEventListener("change", () => void saveSettings({ theme: themeInput.value }));
+startAccountInput.addEventListener("change", () => {
+  void saveSettings({ startAccountId: startAccountInput.value });
+});
+lockAfterInput.addEventListener("change", () => {
+  void saveSettings({ lockAfterMinutes: Number(lockAfterInput.value) });
+});
+operatorNameInput.addEventListener("input", () => {
+  clearTimeout(operatorNameTimer);
+  operatorNameTimer = setTimeout(() => {
+    void saveSettings({ operatorName: operatorNameInput.value.trim() });
+  }, 400);
 });
 
-settingsForm.addEventListener("submit", async (event) => {
+settingsTabs.forEach((button) => {
+  button.addEventListener("click", () => setSettingsTab(button.dataset.tab));
+});
+
+pinForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const pinValue = pinInput.value.trim();
-
-  if (pinValue && !/^\d{4,12}$/.test(pinValue)) {
-    window.alert("PIN должен состоять из 4-12 цифр.");
-    pinInput.focus();
-    return;
-  }
-
-  if (pinEnabledInput.checked && !settings.pinEnabled && !pinValue) {
-    window.alert("Введите новый PIN, чтобы включить блокировку.");
-    pinInput.focus();
-    return;
-  }
-
   const currentPin = currentPinInput.value.trim();
-  const isChangingPin = settings.pinEnabled && (pinValue || !pinEnabledInput.checked);
+  const newPin = newPinInput.value.trim();
 
-  if (isChangingPin && !currentPin) {
-    window.alert("Введите текущий PIN, чтобы сменить или выключить блокировку.");
+  if (settings.pinEnabled && !currentPin) {
+    showPinMessage("Введите текущий PIN", false);
     currentPinInput.focus();
     return;
   }
 
-  const state = await window.messengerShell.updateSettings({
-    operatorName: operatorNameInput.value.trim(),
-    startAccountId: startAccountInput.value,
-    notificationsEnabled: notificationsInput.checked,
-    messagePreviewsEnabled: messagePreviewsInput.checked,
-    launchAtLogin: launchAtLoginInput.checked,
-    keepInBackground: backgroundInput.checked,
-    compactMode: compactModeInput.checked,
-    globalShortcutEnabled: globalShortcutInput.checked,
-    lockAfterMinutes: Number(lockAfterInput.value)
-  });
-  settings = state.settings;
-  currentSettingsPath = state.settingsPath || currentSettingsPath;
-  currentGlobalShortcut = state.globalShortcut || currentGlobalShortcut;
-
-  let pinState;
-  if (pinValue) {
-    pinState = await window.messengerShell.setPin(pinValue, currentPin);
-  } else if (!pinEnabledInput.checked && settings.pinEnabled) {
-    pinState = await window.messengerShell.disablePin(currentPin);
-  }
-
-  if (pinState) {
-    settings = pinState.settings || settings;
-
-    // Остальные настройки уже сохранены, а с PIN не вышло — окно не закрываем,
-    // чтобы было видно, что именно не применилось.
-    if (!pinState.ok) {
-      currentPinInput.value = "";
-      window.alert(pinErrorText(pinState));
-      currentPinInput.focus();
-      return;
-    }
-  }
-
-  pinInput.value = "";
-  currentPinInput.value = "";
-  applySettingsMode();
-  closeSettings();
-});
-
-lockForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const result = await window.messengerShell.verifyPin(lockPinInput.value);
-
-  if (!result.ok) {
-    lockError.textContent = pinErrorText(result);
-    lockError.hidden = false;
-    lockPinInput.select();
+  if (!/^\d{4,12}$/.test(newPin)) {
+    showPinMessage("Новый PIN — от 4 до 12 цифр", false);
+    newPinInput.focus();
     return;
   }
 
+  const wasEnabled = Boolean(settings.pinEnabled);
+  const result = await window.messengerShell.setPin(newPin, currentPin);
   settings = result.settings || settings;
-  hideLock();
-});
 
-onboardingForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const state = await window.messengerShell.updateSettings({
-    operatorName: onboardingNameInput.value.trim(),
-    onboardingComplete: true
-  });
-  settings = state.settings;
-  currentSettingsPath = state.settingsPath || currentSettingsPath;
-  onboardingBackdrop.hidden = true;
-  renderAccounts();
-  syncOverlay();
-  openAddMessenger();
-});
-
-cancelButton.addEventListener("click", () => {
-  closeModal();
-});
-
-modalBackdrop.addEventListener("click", (event) => {
-  if (event.target === modalBackdrop) {
-    closeModal();
+  if (!result.ok) {
+    showPinMessage(pinErrorText(result), false);
+    currentPinInput.value = "";
+    (settings.pinEnabled ? currentPinInput : newPinInput).focus();
+    return;
   }
-});
 
-platformInput.addEventListener("change", () => {
-  updatePhoneField();
-  if (!labelInput.value.trim()) {
-    labelInput.value =
-      platformInput.value === "whatsapp"
-        ? "WhatsApp"
-        : platformInput.value === "telegram"
-          ? "Telegram"
-          : "Instagram";
-  }
-});
-
-addForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const platform = platformInput.value;
-  const label = labelInput.value.trim();
-  const phone = phoneInput.value.trim();
-
-  const state = await window.messengerShell.addAccount({
-    platform,
-    label,
-    phone
-  });
-
-  accounts = state.accounts;
-  activeAccountId = state.activeAccountId;
-  unreadCounts = state.unreadCounts || {};
-  renderAccounts();
-  closeModal();
-});
-
-function closeModal() {
-  modalBackdrop.hidden = true;
-  addForm.reset();
-  updatePhoneField();
-  syncOverlay();
-}
-
-function renderSettingsForm() {
-  operatorNameInput.value = settings.operatorName || "";
-  startAccountInput.replaceChildren(
-    ...accounts.map((account) => {
-      const option = document.createElement("option");
-      option.value = account.id;
-      option.textContent = account.label;
-      option.selected = account.id === (settings.startAccountId || activeAccountId);
-      return option;
-    })
-  );
-  notificationsInput.checked = settings.notificationsEnabled !== false;
-  messagePreviewsInput.checked = settings.messagePreviewsEnabled !== false;
-  launchAtLoginInput.checked = Boolean(settings.launchAtLogin);
-  backgroundInput.checked = settings.keepInBackground !== false;
-  compactModeInput.checked = Boolean(settings.compactMode);
-  globalShortcutInput.checked = settings.globalShortcutEnabled !== false;
-  pinEnabledInput.checked = Boolean(settings.pinEnabled);
-  lockAfterInput.value = String(lockAfterMinutesValue(settings.lockAfterMinutes));
-  currentPinField.hidden = !settings.pinEnabled;
   currentPinInput.value = "";
-  pinInput.value = "";
-  pinStatus.textContent = settings.pinEnabled ? "Включена" : "Выключена";
-  renderGlobalShortcutStatus();
-  settingsPath.textContent = currentSettingsPath ? `Файл: ${currentSettingsPath}` : "";
-  appVersionText.textContent = appVersion ? `Версия: ${appVersion}` : "";
-  updateStatusText.textContent = currentUpdateStatus.message || "";
-  renderManagementAccounts();
+  newPinInput.value = "";
+  renderSidebar();
+  renderPinSection();
+  showPinMessage(wasEnabled ? "PIN изменён" : "PIN-блокировка включена", true);
+});
+
+disablePinButton.addEventListener("click", async () => {
+  const currentPin = currentPinInput.value.trim();
+  if (!currentPin) {
+    showPinMessage("Чтобы выключить PIN, введите текущий", false);
+    currentPinInput.focus();
+    return;
+  }
+
+  const result = await window.messengerShell.disablePin(currentPin);
+  settings = result.settings || settings;
+
+  if (!result.ok) {
+    showPinMessage(pinErrorText(result), false);
+    currentPinInput.value = "";
+    currentPinInput.focus();
+    return;
+  }
+
+  currentPinInput.value = "";
+  newPinInput.value = "";
+  renderSidebar();
+  renderPinSection();
+  showPinMessage("PIN-блокировка выключена", true);
+});
+
+lockNowButton.addEventListener("click", () => {
+  closeSettings();
+  showLock();
+});
+
+checkUpdatesButton.addEventListener("click", async () => {
+  checkUpdatesButton.disabled = true;
+  updateStatusText.textContent = "Проверяю обновления…";
+  const result = await window.messengerShell.checkForUpdates();
+  currentUpdateStatus = result?.updateStatus || currentUpdateStatus;
+  renderAbout();
+});
+
+settingsCloseButton.addEventListener("click", closeSettings);
+settingsBackdrop.addEventListener("click", (event) => {
+  if (event.target === settingsBackdrop) closeSettings();
+});
+settingsButton.addEventListener("click", () => openSettings());
+openLogsButton.addEventListener("click", () => void window.messengerShell.showLogs());
+openSettingsFileButton.addEventListener("click", () => void window.messengerShell.showSettingsFile());
+devtoolsButton.addEventListener("click", () => void window.messengerShell.openDevTools());
+
+// ───────────── Блокировка ─────────────
+
+// Отсчёт бездействия ведёт главный процесс по времени бездействия системы,
+// а сюда приходит только команда заблокироваться.
+function lockAfterMinutesValue(value) {
+  const minutes = Number(value);
+  return value !== undefined && value !== null && [0, 1, 5, 15, 30].includes(minutes)
+    ? minutes
+    : 5;
 }
 
-function subtitleText() {
-  const countText = `${accounts.length} ${accounts.length === 1 ? "session" : "sessions"}`;
-  return settings.operatorName ? `${settings.operatorName} · ${countText}` : countText;
+function pinErrorText(result = {}) {
+  if (result.reason === "invalid") {
+    return "PIN должен состоять из 4–12 цифр";
+  }
+
+  if (result.retryAfterMs > 0) {
+    return pauseText(Math.ceil(result.retryAfterMs / 1000));
+  }
+
+  return "Неверный PIN";
 }
+
+function pauseText(seconds) {
+  const wait = seconds < 120 ? `${seconds} сек.` : `${Math.ceil(seconds / 60)} мин.`;
+  return `Слишком много неверных попыток. Попробуйте снова через ${wait}`;
+}
+
+function showLock() {
+  if (!settings.pinEnabled) {
+    return;
+  }
+
+  isLocked = true;
+  closeCommandPalette();
+  closeAddModal();
+  closeSettings();
+  closeEdit();
+  onboardingBackdrop.hidden = true;
+  lockError.hidden = true;
+  lockPinInput.value = "";
+
+  const minutes = lockAfterMinutesValue(settings.lockAfterMinutes);
+  lockHint.textContent = `Приложение блокируется при скрытии окна, при блокировке экрана${
+    minutes > 0 ? ` и после ${minutes} мин. бездействия` : ""
+  }`;
+
+  lockBackdrop.hidden = false;
+  void window.messengerShell.setLocked(true);
+  requestAnimationFrame(() => lockPinInput.focus());
+}
+
+function hideLock() {
+  isLocked = false;
+  lockPausedUntil = 0;
+  lockBackdrop.hidden = true;
+  lockPinInput.value = "";
+  lockError.hidden = true;
+  void window.messengerShell.setLocked(false);
+}
+
+function refreshLockPause() {
+  if (!lockPausedUntil) {
+    return;
+  }
+
+  const seconds = Math.ceil((lockPausedUntil - Date.now()) / 1000);
+  if (seconds > 0) {
+    lockError.textContent = pauseText(seconds);
+    return;
+  }
+
+  lockPausedUntil = 0;
+  lockError.hidden = true;
+  lockPinInput.disabled = false;
+  unlockButton.disabled = false;
+  lockPinInput.focus();
+}
+
+lockForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (lockPausedUntil) {
+    return;
+  }
+
+  const result = await window.messengerShell.verifyPin(lockPinInput.value);
+
+  if (result.ok) {
+    settings = result.settings || settings;
+    hideLock();
+    return;
+  }
+
+  lockPinInput.value = "";
+  lockError.hidden = false;
+
+  if (result.retryAfterMs > 0) {
+    lockPausedUntil = Date.now() + result.retryAfterMs;
+    lockError.className = "lockError paused";
+    lockError.textContent = pauseText(Math.ceil(result.retryAfterMs / 1000));
+    lockPinInput.disabled = true;
+    unlockButton.disabled = true;
+    return;
+  }
+
+  lockError.className = "lockError";
+  lockError.textContent = pinErrorText(result);
+  lockPinInput.focus();
+});
+
+lockButton.addEventListener("click", showLock);
+
+// ───────────── Первый запуск ─────────────
 
 function maybeOpenOnboarding() {
   if (settings.onboardingComplete) {
@@ -925,19 +1118,23 @@ function maybeOpenOnboarding() {
   onboardingNameInput.focus();
 }
 
-function openAddMessenger() {
-  modalBackdrop.hidden = false;
-  updatePhoneField();
+onboardingForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const state = await window.messengerShell.updateSettings({
+    operatorName: onboardingNameInput.value.trim(),
+    onboardingComplete: true
+  });
+  settings = state.settings;
+  onboardingBackdrop.hidden = true;
   syncOverlay();
-  platformInput.focus();
-}
+  renderSidebar();
+  openAddModal();
+});
 
-function applySettingsMode() {
-  document.body.classList.toggle("compactMode", Boolean(settings.compactMode));
-}
+// ───────────── Значок в панели задач Windows ─────────────
 
-// Счётчик непрочитанных на значке в панели задач Windows. Что писать, решает
-// главный процесс; здесь только рисунок — в главном процессе нет canvas.
+// Что писать, решает главный процесс; здесь только рисунок — в главном
+// процессе нет canvas.
 function syncTaskbarBadge(text = "") {
   if (currentPlatform !== "win32" || text === drawnTaskbarBadge) {
     return;
@@ -956,7 +1153,7 @@ function drawTaskbarBadge(text) {
   canvas.height = size;
 
   const context = canvas.getContext("2d");
-  context.fillStyle = "#e5484d";
+  context.fillStyle = "#cd2b31";
   context.beginPath();
   context.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
   context.fill();
@@ -971,115 +1168,75 @@ function drawTaskbarBadge(text) {
   return canvas.toDataURL("image/png");
 }
 
-// Отсчёт бездействия ведёт главный процесс по времени бездействия системы,
-// а сюда приходит только команда заблокироваться.
-function lockAfterMinutesValue(value) {
-  const minutes = Number(value);
-  return value !== undefined && value !== null && [0, 1, 5, 15, 30].includes(minutes)
-    ? minutes
-    : 5;
-}
+// ───────────── Общие события ─────────────
 
-function pinErrorText(result = {}) {
-  if (result.reason === "invalid") {
-    return "PIN должен состоять из 4-12 цифр.";
-  }
+collapseButton.addEventListener("click", () => {
+  void saveSettings({ compactMode: !settings.compactMode });
+});
+searchButton.addEventListener("click", openCommandPalette);
+retryButton.addEventListener("click", () => void window.messengerShell.reload());
+offlineLogsButton.addEventListener("click", () => void window.messengerShell.showLogs());
 
-  if (result.retryAfterMs > 0) {
-    const seconds = Math.ceil(result.retryAfterMs / 1000);
-    const wait = seconds < 120 ? `${seconds} сек.` : `${Math.ceil(seconds / 60)} мин.`;
-    return `Слишком много неверных попыток. Попробуйте снова через ${wait}`;
-  }
-
-  return "Неверный PIN";
-}
-
-function showLock() {
-  if (!settings.pinEnabled) {
+document.addEventListener("keydown", (event) => {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+    event.preventDefault();
+    openCommandPalette();
     return;
   }
 
-  isLocked = true;
+  if (event.key !== "Escape") {
+    return;
+  }
+
   closeCommandPalette();
-  closeModal();
-  closeSettings();
+  closeAddModal();
   closeEdit();
-  onboardingBackdrop.hidden = true;
-  lockError.hidden = true;
-  lockPinInput.value = "";
-  lockBackdrop.hidden = false;
-  void window.messengerShell.setLocked(true);
-  requestAnimationFrame(() => lockPinInput.focus());
-}
+  closeSettings();
+});
 
-function hideLock() {
-  isLocked = false;
-  lockBackdrop.hidden = true;
-  lockPinInput.value = "";
-  lockError.hidden = true;
-  void window.messengerShell.setLocked(false);
-}
+window.messengerShell.onAccountChanged((state) => {
+  activeAccountId = state.activeAccountId;
+  renderSidebar();
+  renderContent();
+});
 
-function renderGlobalShortcutStatus() {
-  const accelerator = currentGlobalShortcut.accelerator || settings.globalShortcut || "Alt+Space";
-  const requested = currentGlobalShortcut.requested || accelerator;
+window.messengerShell.onAccountListChanged(applyState);
+window.messengerShell.onCommandOpen(openCommandPalette);
+window.messengerShell.onSecurityLock(showLock);
 
-  if (settings.globalShortcutEnabled === false) {
-    globalShortcutStatus.textContent = "Глобальная горячая клавиша выключена";
-    return;
+window.messengerShell.onAccountEditRequested(({ accountId }) => {
+  const account = accounts.find((item) => item.id === accountId);
+  if (account) {
+    editAccount(account);
   }
+});
 
-  if (!currentGlobalShortcut.registered) {
-    globalShortcutStatus.textContent = `Ни одно сочетание не удалось занять, включая ${formatAccelerator(requested)}. Похоже, все они уже заняты другими программами.`;
-    return;
-  }
+// Ошибки страницы оболочки живут в отдельном процессе и в файл сами не попадут.
+// Без этого падение интерфейса выглядело бы как «просто перестало работать».
+window.addEventListener("error", (event) => {
+  window.messengerShell.reportError("ERROR", `${event.message} (${event.filename}:${event.lineno})`);
+});
 
-  // Запрошенное сочетание могло оказаться занятым — тогда сработало запасное,
-  // и об этом нужно сказать прямо, иначе клавиша «не работает» без объяснений.
-  globalShortcutStatus.textContent =
-    accelerator === requested
-      ? `Глобальная горячая клавиша активна: ${formatAccelerator(accelerator)}`
-      : `${formatAccelerator(requested)} занято другой программой, включено ${formatAccelerator(accelerator)}`;
-}
+window.addEventListener("unhandledrejection", (event) => {
+  window.messengerShell.reportError("ERROR", `необработанный отказ: ${event.reason}`);
+});
 
-function formatAccelerator(accelerator) {
-  // Option — название клавиши только на Mac; на Windows она называется Alt.
-  return currentPlatform === "darwin"
-    ? String(accelerator).replace("Alt", "Option")
-    : String(accelerator);
-}
+setInterval(() => {
+  refreshCountdowns();
+  refreshLockPause();
+}, 1000);
 
-function closeSettings() {
-  settingsBackdrop.hidden = true;
-  syncOverlay();
-}
-
-function closeEdit() {
-  editBackdrop.hidden = true;
-  editingAccountId = undefined;
-  editForm.reset();
-  syncOverlay();
-}
-
-function updatePhoneField() {
-  const isWhatsApp = platformInput.value === "whatsapp";
-  phoneField.hidden = !isWhatsApp;
-  if (!isWhatsApp) {
-    phoneInput.value = "";
-  }
-}
-
-async function toggleAccountNotifications(account) {
-  const state = await window.messengerShell.updateAccount(account.id, {
-    notificationsEnabled: account.notificationsEnabled === false
+async function init() {
+  document.querySelectorAll("[data-platform-icon]").forEach((tile) => {
+    tile.innerHTML = platformIcons[tile.dataset.platformIcon];
   });
 
-  accounts = state.accounts;
-  activeAccountId = state.activeAccountId;
-  unreadCounts = state.unreadCounts || {};
-  settings = state.settings || settings;
-  renderAccounts();
-  renderSettingsForm();
+  applyState(await window.messengerShell.getAccounts());
+  maybeOpenOnboarding();
+
+  if (settings.pinEnabled) {
+    showLock();
+  }
 }
 
 void init();

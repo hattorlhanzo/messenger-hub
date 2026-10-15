@@ -7,262 +7,334 @@
     <link rel="stylesheet" href="./renderer.css" />
   </head>
   <body>
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="mark">M</div>
-        <div>
-          <h1>Messenger Hub</h1>
-          <span id="accountCount">0 sessions</span>
+    <aside class="sidebar" id="sidebar">
+      <div class="titlebarSpace dragRegion" aria-hidden="true"></div>
+
+      <div class="brandRow dragRegion">
+        <div class="brand">
+          <div class="mark" aria-hidden="true">M</div>
+          <div class="brandText">
+            <strong>Messenger Hub</strong>
+            <span id="workspaceLine"></span>
+          </div>
         </div>
+        <button class="iconButton noDrag" id="collapseButton" type="button" aria-label="Свернуть панель" title="Свернуть панель">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="2.5"></rect><path d="M9 5v14"></path><path id="collapseArrow" d="M15 10l-2 2 2 2"></path></svg>
+        </button>
       </div>
-      <nav class="accountList" id="accountList"></nav>
-      <button class="addButton" id="addButton" type="button">+ Добавить мессенджер</button>
-      <button class="settingsButton" id="settingsButton" type="button">Настройки</button>
+
+      <button class="searchButton" id="searchButton" type="button" aria-label="Перейти к аккаунту">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4.5 4.5"></path></svg>
+        <span class="searchLabel">Перейти к аккаунту</span>
+        <kbd id="searchKbd">⌘K</kbd>
+      </button>
+
+      <div class="listHeader">
+        <span>Аккаунты</span>
+        <span id="unreadLine"></span>
+      </div>
+
+      <nav class="accountList" id="accountList" aria-label="Аккаунты"></nav>
+
+      <div class="sidebarFooter">
+        <button class="addButton" id="addButton" type="button" aria-label="Добавить аккаунт">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+          <span>Добавить аккаунт</span>
+        </button>
+        <button class="iconButton" id="lockButton" type="button" aria-label="Заблокировать" title="Заблокировать" hidden>
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2"></rect><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"></path></svg>
+        </button>
+        <button class="iconButton" id="settingsButton" type="button" aria-label="Настройки" title="Настройки">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg>
+        </button>
+      </div>
     </aside>
 
-    <header class="toolbar">
-      <div class="navButtons">
-        <button id="backButton" title="Back" type="button">‹</button>
-        <button id="forwardButton" title="Forward" type="button">›</button>
-        <button id="reloadButton" title="Reload" type="button">↻</button>
-      </div>
-      <div class="location">
-        <strong id="pageTitle">Loading</strong>
-        <span id="pageUrl"></span>
-      </div>
-      <button class="ghostButton" id="devtoolsButton" type="button" hidden>DevTools</button>
-    </header>
+    <!-- Сама страница мессенджера лежит поверх этой области отдельным слоем.
+         Оболочка рисует здесь только то, что видно, когда этот слой спрятан. -->
+    <main class="content" id="content">
+      <section class="stateScreen" id="emptyScreen" hidden>
+        <div class="stateIcon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+        </div>
+        <h1>Аккаунтов пока нет</h1>
+        <p>Добавьте WhatsApp, Telegram или Instagram — каждый аккаунт хранит свой вход отдельно.</p>
+        <div class="stateActions">
+          <button class="button primary" id="emptyAddButton" type="button">Добавить аккаунт</button>
+        </div>
+      </section>
 
-    <div class="modalBackdrop" id="modalBackdrop" hidden>
-      <form class="modal" id="addForm">
-        <h2>Добавить мессенджер</h2>
-        <label>
-          Мессенджер
-          <select id="platformInput" name="platform">
-            <option value="whatsapp">WhatsApp</option>
-            <option value="telegram">Telegram</option>
-            <option value="instagram">Instagram</option>
-          </select>
-        </label>
-        <label>
+      <section class="stateScreen" id="offlineScreen" aria-live="polite" hidden>
+        <div class="stateIcon warn" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l18 18"></path><path d="M8.5 16.5a5 5 0 0 1 7 0"></path><path d="M5 12.9a10 10 0 0 1 4.3-2.4"></path><path d="M14.7 10.5A10 10 0 0 1 19 12.9"></path><path d="M2 9a15 15 0 0 1 4.5-2.9"></path><path d="M11 5.1A15 15 0 0 1 22 9"></path><circle cx="12" cy="19.5" r="0.7" fill="currentColor"></circle></svg>
+        </div>
+        <h1 id="offlineTitle"></h1>
+        <p id="offlineText"></p>
+        <div class="stateActions">
+          <button class="button primary" id="retryButton" type="button">Повторить сейчас</button>
+          <button class="button" id="offlineLogsButton" type="button">Показать логи</button>
+        </div>
+        <p class="stateMeta" id="offlineMeta"></p>
+      </section>
+    </main>
+
+    <div class="backdrop" id="addBackdrop" hidden>
+      <form class="modal addModal" id="addForm" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+        <div>
+          <h2 id="addTitle">Новый аккаунт</h2>
+          <p class="modalLead">Каждый аккаунт хранит свой вход отдельно — несколько номеров одного мессенджера не мешают друг другу.</p>
+        </div>
+        <fieldset class="platformCards">
+          <legend>Мессенджер</legend>
+          <label class="platformCard">
+            <input type="radio" name="platform" value="whatsapp" checked />
+            <span class="tile whatsapp large" data-platform-icon="whatsapp"></span>
+            WhatsApp
+          </label>
+          <label class="platformCard">
+            <input type="radio" name="platform" value="telegram" />
+            <span class="tile telegram large" data-platform-icon="telegram"></span>
+            Telegram
+          </label>
+          <label class="platformCard">
+            <input type="radio" name="platform" value="instagram" />
+            <span class="tile instagram large" data-platform-icon="instagram"></span>
+            Instagram
+          </label>
+        </fieldset>
+        <label class="field">
           Название
-          <input id="labelInput" name="label" placeholder="WhatsApp work" />
+          <input id="labelInput" name="label" placeholder="Например, Поддержка" autocomplete="off" />
         </label>
-        <label id="phoneField">
+        <label class="field" id="phoneField">
           Номер телефона
-          <input id="phoneInput" name="phone" placeholder="+79990000000" />
+          <input id="phoneInput" name="phone" placeholder="+7 900 000-00-00" inputmode="tel" autocomplete="off" />
+          <span class="hint">Только для подписи в списке и в уведомлениях. Можно оставить пустым.</span>
         </label>
+        <div class="note">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="6" height="6" rx="1"></rect><rect x="14" y="4" width="6" height="6" rx="1"></rect><rect x="4" y="14" width="6" height="6" rx="1"></rect><path d="M14 14h2v2M20 14v6h-6"></path></svg>
+          <span id="addNote"></span>
+        </div>
         <div class="modalActions">
-          <button class="ghostButton" id="cancelButton" type="button">Отмена</button>
-          <button class="primaryButton" type="submit">Добавить</button>
+          <button class="button" id="addCancelButton" type="button">Отмена</button>
+          <button class="button primary" type="submit">Добавить и войти</button>
         </div>
       </form>
     </div>
 
-    <div class="modalBackdrop" id="settingsBackdrop" hidden>
-      <form class="modal managementModal" id="settingsForm">
-        <div class="modalHeader">
-          <div>
-            <h2>Управление</h2>
-            <p>Аккаунты, сессии и поведение приложения</p>
-          </div>
-          <button class="ghostButton" id="settingsCancelButton" type="button">Закрыть</button>
+    <div class="backdrop" id="editBackdrop" hidden>
+      <form class="modal" id="editForm" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+        <h2 id="editTitle">Аккаунт</h2>
+        <label class="field">
+          Название
+          <input id="editLabelInput" name="label" autocomplete="off" />
+        </label>
+        <label class="field" id="editPhoneField">
+          Номер телефона
+          <input id="editPhoneInput" name="phone" placeholder="+7 900 000-00-00" inputmode="tel" autocomplete="off" />
+        </label>
+        <div class="modalActions">
+          <button class="button" id="editCancelButton" type="button">Отмена</button>
+          <button class="button primary" type="submit">Сохранить</button>
         </div>
+      </form>
+    </div>
 
-        <div class="managementLayout">
-          <section class="managementSection">
-            <div class="sectionHeader">
-              <h3>Аккаунты</h3>
-              <span id="managementAccountCount">0</span>
+    <div class="backdrop" id="settingsBackdrop" hidden>
+      <div class="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <nav class="settingsNav" aria-label="Разделы настроек">
+          <h2 id="settingsTitle">Настройки</h2>
+          <button class="settingsTab" type="button" data-tab="accounts">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="4"></rect><path d="M8 10h8M8 14h5"></path></svg>Аккаунты
+          </button>
+          <button class="settingsTab" type="button" data-tab="notifications">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"></path><path d="M10 20.5a2 2 0 0 0 4 0"></path></svg>Уведомления
+          </button>
+          <button class="settingsTab" type="button" data-tab="lock">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2"></rect><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"></path></svg>Блокировка
+          </button>
+          <button class="settingsTab" type="button" data-tab="app">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="14" rx="2.5"></rect><path d="M9 5v14"></path></svg>Окно и запуск
+          </button>
+          <button class="settingsTab" type="button" data-tab="about">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 11v5M12 8h.01"></path></svg>О программе
+          </button>
+          <div class="spacer"></div>
+          <p class="navNote">Изменения применяются сразу</p>
+        </nav>
+
+        <div class="settingsBody">
+          <button class="iconButton closeButton" id="settingsCloseButton" type="button" aria-label="Закрыть настройки">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+          </button>
+
+          <section class="settingsPanel" data-panel="accounts">
+            <h3>Аккаунты</h3>
+            <p class="panelLead">Порядок меняется перетаскиванием в боковой панели. Переименовать, удалить или очистить вход — в меню «⋯» или правым кликом по аккаунту.</p>
+            <div id="settingsAccounts"></div>
+            <div class="settingRow">
+              <span><span class="settingLabel">При запуске открывать</span><span class="settingDesc">Какой аккаунт показать первым после старта приложения</span></span>
+              <select id="startAccountInput" aria-label="При запуске открывать"></select>
             </div>
-            <div class="managementAccounts" id="managementAccounts"></div>
           </section>
 
-          <section class="managementSection preferencesSection">
-            <div class="sectionHeader">
-              <h3>Настройки</h3>
+          <section class="settingsPanel" data-panel="notifications" hidden>
+            <h3>Уведомления</h3>
+            <p class="panelLead">Уведомления отдельных аккаунтов включаются в разделе «Аккаунты».</p>
+            <div class="settingRow">
+              <span><span class="settingLabel">Уведомления о новых сообщениях</span><span class="settingDesc">Системные уведомления; клик открывает нужный чат</span></span>
+              <input class="switch" id="notificationsInput" type="checkbox" aria-label="Уведомления о новых сообщениях" />
             </div>
-            <label>
-              Имя оператора
-              <input id="operatorNameInput" name="operatorName" placeholder="Оператор 1" />
-            </label>
-            <label>
-              Стартовый аккаунт
-              <select id="startAccountInput" name="startAccountId"></select>
-            </label>
-            <label class="checkboxLabel">
-              <input id="notificationsInput" name="notificationsEnabled" type="checkbox" />
-              Уведомления
-            </label>
-            <label class="checkboxLabel">
-              <input id="messagePreviewsInput" name="messagePreviewsEnabled" type="checkbox" />
-              Показывать текст сообщения в уведомлениях
-            </label>
-            <label class="checkboxLabel">
-              <input id="launchAtLoginInput" name="launchAtLogin" type="checkbox" />
-              Запускать при входе в macOS
-            </label>
-            <label class="checkboxLabel">
-              <input id="backgroundInput" name="keepInBackground" type="checkbox" />
-              Оставлять в фоне при закрытии окна
-            </label>
-            <label class="checkboxLabel">
-              <input id="compactModeInput" name="compactMode" type="checkbox" />
-              Компактная верхняя панель
-            </label>
-            <label class="checkboxLabel">
-              <input id="globalShortcutInput" name="globalShortcutEnabled" type="checkbox" />
-              Показывать/скрывать по Option+Space
-            </label>
-            <p class="settingsPath" id="globalShortcutStatus"></p>
-            <div class="securityBox">
-              <div>
-                <strong>PIN-блокировка</strong>
-                <span id="pinStatus">Выключена</span>
+            <div class="settingRow">
+              <span><span class="settingLabel">Показывать текст сообщения</span><span class="settingDesc">Если выключить, придёт только «Новое сообщение» — удобно, когда экран видят другие</span></span>
+              <input class="switch" id="messagePreviewsInput" type="checkbox" aria-label="Показывать текст сообщения" />
+            </div>
+          </section>
+
+          <section class="settingsPanel" data-panel="lock" hidden>
+            <h3>Блокировка</h3>
+            <p class="panelLead">PIN закрывает переписку от чужих глаз, пока вы отошли. Это не шифрование: файлы сессий доступны любому, кто вошёл в вашу учётную запись в системе.</p>
+            <div class="settingRow">
+              <span><span class="settingLabel">PIN-блокировка</span><span class="settingDesc" id="pinStatusText"></span></span>
+              <button class="button" id="lockNowButton" type="button">Заблокировать сейчас</button>
+            </div>
+            <div class="settingRow" id="lockAfterRow">
+              <span><span class="settingLabel">Блокировать при бездействии</span><span class="settingDesc">Считается бездействие всего компьютера, а не только этого окна</span></span>
+              <select id="lockAfterInput" aria-label="Блокировать при бездействии">
+                <option value="1">через 1 минуту</option>
+                <option value="5">через 5 минут</option>
+                <option value="15">через 15 минут</option>
+                <option value="30">через 30 минут</option>
+                <option value="0">не блокировать</option>
+              </select>
+            </div>
+            <form class="pinForm" id="pinForm">
+              <span class="settingLabel" id="pinFormTitle"></span>
+              <div class="pinFields">
+                <label class="field" id="currentPinField">
+                  Текущий PIN
+                  <input id="currentPinInput" type="password" inputmode="numeric" maxlength="12" autocomplete="current-password" />
+                </label>
+                <label class="field">
+                  Новый PIN
+                  <input id="newPinInput" type="password" inputmode="numeric" maxlength="12" placeholder="4–12 цифр" autocomplete="new-password" />
+                </label>
+                <button class="button primary" id="savePinButton" type="submit"></button>
+                <button class="button" id="disablePinButton" type="button">Выключить PIN</button>
               </div>
-              <label class="checkboxLabel">
-                <input id="pinEnabledInput" name="pinEnabled" type="checkbox" />
-                Включить PIN-блокировку
-              </label>
-              <label>
-                Блокировать при бездействии
-                <select id="lockAfterInput" name="lockAfterMinutes">
-                  <option value="1">через 1 минуту</option>
-                  <option value="5">через 5 минут</option>
-                  <option value="15">через 15 минут</option>
-                  <option value="30">через 30 минут</option>
-                  <option value="0">не блокировать</option>
-                </select>
-              </label>
-              <label id="currentPinField" hidden>
-                Текущий PIN
-                <input
-                  id="currentPinInput"
-                  name="currentPin"
-                  autocomplete="current-password"
-                  inputmode="numeric"
-                  maxlength="12"
-                  placeholder="нужен, чтобы сменить или выключить"
-                  type="password"
-                />
-              </label>
-              <label>
-                Новый PIN
-                <input
-                  id="pinInput"
-                  name="pin"
-                  inputmode="numeric"
-                  maxlength="12"
-                  placeholder="4-12 цифр"
-                  type="password"
-                />
-              </label>
-              <p class="settingsPath">
-                Окно блокируется при запуске, при скрытии, при блокировке экрана
-                компьютера и после бездействия.
-                PIN закрывает переписку от чужих глаз, пока вы отошли от компьютера.
-                Это не шифрование: файлы сессий на диске остаются доступны тому,
-                у кого есть доступ к вашей учётной записи в системе.
-              </p>
+              <p class="formMessage" id="pinMessage" role="status" hidden></p>
+            </form>
+          </section>
+
+          <section class="settingsPanel" data-panel="app" hidden>
+            <h3>Окно и запуск</h3>
+            <div class="settingRow">
+              <span><span class="settingLabel">Имя рабочего места</span><span class="settingDesc">Показывается под названием приложения</span></span>
+              <input id="operatorNameInput" placeholder="Оператор 1" aria-label="Имя рабочего места" autocomplete="off" />
             </div>
-            <button class="ghostButton wideButton" id="openSettingsFileButton" type="button">
-              Показать файл настроек
-            </button>
-            <button class="ghostButton wideButton" id="openLogsButton" type="button">
-              Показать логи
-            </button>
-            <p class="settingsPath" id="settingsPath"></p>
-            <p class="settingsPath" id="appVersionText"></p>
-            <p class="settingsPath" id="updateStatusText"></p>
+            <div class="settingRow">
+              <span class="settingLabel">Тема</span>
+              <select id="themeInput" aria-label="Тема">
+                <option value="system">Как в системе</option>
+                <option value="light">Светлая</option>
+                <option value="dark">Тёмная</option>
+              </select>
+            </div>
+            <div class="settingRow">
+              <span><span class="settingLabel">Компактная боковая панель</span><span class="settingDesc">Только значки — больше места для мессенджера</span></span>
+              <input class="switch" id="compactModeInput" type="checkbox" aria-label="Компактная боковая панель" />
+            </div>
+            <div class="settingRow">
+              <span class="settingLabel">Запускать при входе в систему</span>
+              <input class="switch" id="launchAtLoginInput" type="checkbox" aria-label="Запускать при входе в систему" />
+            </div>
+            <div class="settingRow">
+              <span><span class="settingLabel">Оставлять в фоне при закрытии окна</span><span class="settingDesc">Сообщения и уведомления продолжают приходить</span></span>
+              <input class="switch" id="backgroundInput" type="checkbox" aria-label="Оставлять в фоне при закрытии окна" />
+            </div>
+            <div class="settingRow">
+              <span><span class="settingLabel" id="globalShortcutLabel"></span><span class="settingDesc" id="globalShortcutStatus"></span></span>
+              <input class="switch" id="globalShortcutInput" type="checkbox" aria-labelledby="globalShortcutLabel" />
+            </div>
+          </section>
+
+          <section class="settingsPanel" data-panel="about" hidden>
+            <div class="aboutHead">
+              <div class="mark large" aria-hidden="true">M</div>
+              <div>
+                <h3>Messenger Hub</h3>
+                <span class="settingDesc" id="appVersionText"></span>
+              </div>
+            </div>
+            <div class="updateBox" id="updateBox">
+              <span id="updateStatusText"></span>
+              <button class="button" id="checkUpdatesButton" type="button">Проверить обновления</button>
+            </div>
+            <div>
+              <span class="settingLabel">Данные приложения</span>
+              <div class="buttonRow">
+                <button class="button" id="openLogsButton" type="button">Показать логи</button>
+                <button class="button" id="openSettingsFileButton" type="button">Показать файл настроек</button>
+                <button class="button" id="devtoolsButton" type="button" hidden>Инструменты разработчика</button>
+              </div>
+              <p class="settingDesc">Если что-то пошло не так, пришлите файл логов — по нему видно, что случилось.</p>
+              <p class="settingDesc pathText" id="settingsPath"></p>
+            </div>
           </section>
         </div>
-
-        <div class="modalActions">
-          <button class="primaryButton" type="submit">Сохранить настройки</button>
-        </div>
-      </form>
-    </div>
-
-    <div class="modalBackdrop" id="editBackdrop" hidden>
-      <form class="modal" id="editForm">
-        <h2>Редактировать аккаунт</h2>
-        <label>
-          Название
-          <input id="editLabelInput" name="label" />
-        </label>
-        <label id="editPhoneField">
-          Номер телефона
-          <input id="editPhoneInput" name="phone" placeholder="+79990000000" />
-        </label>
-        <div class="modalActions">
-          <button class="ghostButton" id="editCancelButton" type="button">Отмена</button>
-          <button class="primaryButton" type="submit">Сохранить</button>
-        </div>
-      </form>
-    </div>
-
-    <div class="commandBackdrop" id="commandBackdrop" hidden>
-      <div class="commandPalette" role="dialog" aria-modal="true" aria-label="Быстрое переключение">
-        <div class="commandInputWrap">
-          <input
-            id="commandInput"
-            autocomplete="off"
-            placeholder="Найти аккаунт по названию, номеру или платформе"
-            spellcheck="false"
-          />
-          <span>Cmd K</span>
-        </div>
-        <div class="commandResults" id="commandResults"></div>
       </div>
     </div>
 
-    <div class="modalBackdrop" id="onboardingBackdrop" hidden>
-      <form class="modal onboardingModal" id="onboardingForm">
-        <div class="modalHeader">
-          <div>
-            <h2>Первый запуск</h2>
-            <p>Назовите это рабочее место, затем добавьте нужные мессенджеры.</p>
-          </div>
-        </div>
-        <label>
-          Имя оператора
-          <input id="onboardingNameInput" name="operatorName" placeholder="Оператор 1" />
+    <div class="backdrop top" id="commandBackdrop" hidden>
+      <div class="modal commandPalette" role="dialog" aria-modal="true" aria-label="Быстрый переход">
+        <label class="commandInputWrap">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4.5 4.5"></path></svg>
+          <span class="visuallyHidden">Найти аккаунт</span>
+          <input id="commandInput" autocomplete="off" placeholder="Название, номер или мессенджер" spellcheck="false" />
+          <kbd>esc</kbd>
         </label>
-        <div class="onboardingSteps">
-          <div>
-            <strong>1</strong>
-            <span>Укажите имя оператора или компьютера</span>
-          </div>
-          <div>
-            <strong>2</strong>
-            <span>Нажмите “Добавить мессенджер” и войдите в аккаунты</span>
-          </div>
-          <div>
-            <strong>3</strong>
-            <span>Настройте уведомления для каждого аккаунта</span>
-          </div>
+        <div class="commandResults" id="commandResults" role="listbox" aria-label="Аккаунты"></div>
+        <div class="commandFooter">
+          <span><kbd>↑</kbd> <kbd>↓</kbd> выбрать</span>
+          <span><kbd>↵</kbd> открыть</span>
+          <span class="push" id="commandShortcutHint"></span>
         </div>
+      </div>
+    </div>
+
+    <div class="backdrop" id="onboardingBackdrop" hidden>
+      <form class="modal" id="onboardingForm" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+        <div class="mark large" aria-hidden="true">M</div>
+        <div>
+          <h2 id="onboardingTitle">Добро пожаловать</h2>
+          <p class="modalLead">Назовите это рабочее место, затем добавьте мессенджеры. Имя видно в боковой панели — так проще различать компьютеры.</p>
+        </div>
+        <label class="field">
+          Имя рабочего места
+          <input id="onboardingNameInput" name="operatorName" placeholder="Оператор 1" autocomplete="off" />
+        </label>
         <div class="modalActions">
-          <button class="primaryButton" type="submit">Начать работу</button>
+          <button class="button primary" type="submit">Дальше — добавить аккаунт</button>
         </div>
       </form>
     </div>
 
-    <div class="lockBackdrop" id="lockBackdrop" hidden>
-      <form class="lockPanel" id="lockForm">
-        <div class="mark">M</div>
-        <h2>Messenger Hub заблокирован</h2>
-        <p>Введите PIN, чтобы вернуться к рабочим аккаунтам.</p>
-        <input
-          id="lockPinInput"
-          autocomplete="current-password"
-          inputmode="numeric"
-          maxlength="12"
-          placeholder="PIN"
-          type="password"
-        />
-        <p class="lockError" id="lockError" hidden>Неверный PIN</p>
-        <button class="primaryButton" type="submit">Разблокировать</button>
+    <div class="lockScreen" id="lockBackdrop" hidden>
+      <form class="lockPanel" id="lockForm" aria-labelledby="lockTitle">
+        <div class="lockIcon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2"></rect><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"></path></svg>
+        </div>
+        <div>
+          <h2 id="lockTitle">Messenger Hub заблокирован</h2>
+          <p class="modalLead">Введите PIN, чтобы вернуться к аккаунтам</p>
+        </div>
+        <label class="lockField">
+          <span class="visuallyHidden">PIN</span>
+          <input id="lockPinInput" autocomplete="current-password" inputmode="numeric" maxlength="12" placeholder="PIN" type="password" />
+        </label>
+        <p class="lockError" id="lockError" role="alert" hidden></p>
+        <button class="button primary wide" id="unlockButton" type="submit">Разблокировать</button>
+        <p class="lockHint" id="lockHint"></p>
       </form>
     </div>
 

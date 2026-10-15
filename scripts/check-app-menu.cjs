@@ -131,6 +131,19 @@ check("Cmd+R обновляет мессенджер, а не оболочку �
   assert.strictEqual(reloaded, true);
 });
 
+check("Cmd+[ и Cmd+] листают историю открытого мессенджера", () => {
+  const calls = [];
+  const items = section(
+    buildMenuTemplate({
+      actions: { onGoBack: () => calls.push("back"), onGoForward: () => calls.push("forward") }
+    }),
+    "Вид"
+  );
+  items.find((i) => i.accelerator === "CommandOrControl+[").click();
+  items.find((i) => i.accelerator === "CommandOrControl+]").click();
+  assert.deepStrictEqual(calls, ["back", "forward"]);
+});
+
 check("масштаб: Cmd+Plus, Cmd+= и Cmd+- меняют его, Cmd+0 сбрасывает", () => {
   const calls = [];
   const items = section(buildMenuTemplate({ actions: { onZoom: (d) => calls.push(d) } }), "Вид");

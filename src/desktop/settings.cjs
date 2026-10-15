@@ -15,6 +15,8 @@ const defaultSettings = {
   launchAtLogin: false,
   keepInBackground: true,
   compactMode: false,
+  // "system" | "light" | "dark"
+  theme: "system",
   globalShortcutEnabled: true,
   globalShortcut: "Alt+Space",
   pinEnabled: false,

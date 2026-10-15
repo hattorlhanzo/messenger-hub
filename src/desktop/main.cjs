@@ -8,6 +8,7 @@ const {
   ipcMain,
   Menu,
   nativeImage,
+  nativeTheme,
   net,
   powerMonitor,
   screen,
@@ -86,10 +87,10 @@ process.on("unhandledRejection", (reason) => {
   console.error("Необработанный отказ промиса:", reason);
 });
 
-const regularTopbarHeight = 76;
-const regularToolbarHeight = 52;
-const compactTopbarHeight = 56;
-const compactToolbarHeight = 44;
+// Ширина боковой панели оболочки. Должна совпадать с renderer.css: вкладка
+// мессенджера занимает всё, что справа от панели, во всю высоту окна.
+const regularSidebarWidth = 280;
+const compactSidebarWidth = 76;
 // Восемь тяжёлых веб-приложений, стартующих одновременно, забивали сеть и процессор
 // настолько, что часть из них не успевала подняться. Разносим запуск во времени.
 const accountLoadStaggerMs = 1500;
@@ -113,6 +114,10 @@ const retryAttempts = new Map();
 // Аккаунты, чья текущая загрузка провалилась. Нужен отдельный признак, потому что
 // страница ошибки Chromium — это тоже успешно загруженная страница.
 const failedAccounts = new Set();
+// Когда назначен следующий повтор и чем закончилась последняя попытка —
+// для экрана «Нет связи», который оболочка показывает вместо страницы ошибки.
+const retryAt = new Map();
+const lastLoadErrors = new Map();
 // Аккаунты, для которых счётчик непрочитанных уже был замечен после загрузки.
 // До этого уведомлять не о чем: первое значение — то, что накопилось,
 // пока приложение было закрыто.
@@ -141,9 +146,13 @@ function createWindow() {
   webAccounts = loadAccounts();
   appSettings = loadSettings();
   applyLoginItemSettings();
+  applyTheme();
+  // Стартовый аккаунт, если его выбрали явно, важнее последнего открытого.
+  // Раньше порядок был обратным, и настройка не действовала никогда: последний
+  // открытый аккаунт записывается при каждом переключении.
   activeAccountId =
-    webAccounts.find((account) => account.id === appSettings.lastAccountId)?.id ||
     webAccounts.find((account) => account.id === appSettings.startAccountId)?.id ||
+    webAccounts.find((account) => account.id === appSettings.lastAccountId)?.id ||
     webAccounts[0]?.id;
 
   const windowBounds = normalizeWindowBounds(appSettings.windowBounds, (rect) =>
@@ -154,7 +163,12 @@ function createWindow() {
     minWidth: 980,
     minHeight: 680,
     title: "Messenger Hub",
-    backgroundColor: "#f8f6ef",
+    backgroundColor: windowBackgroundColor(),
+    // На macOS заголовок окна убран: кнопки окна встают в боковую панель,
+    // и мессенджеру достаётся вся высота.
+    ...(process.platform === "darwin"
+      ? { titleBarStyle: "hiddenInset", trafficLightPosition: { x: 20, y: 20 } }
+      : {}),
     icon: path.join(__dirname, "assets/icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
@@ -302,6 +316,7 @@ function createAccountView(account, { load = true } = {}) {
 
     console.error(`Account ${account.id} failed to load: ${errorDescription} (${errorCode})`);
     failedAccounts.add(account.id);
+    lastLoadErrors.set(account.id, errorDescription);
     scheduleAccountRetry(account);
   });
 
@@ -434,7 +449,10 @@ function layoutActiveView() {
   // блокировке уводить за нижний край окна: BrowserView всегда рисовался поверх
   // собственной страницы окна, и перекрыть его было нечем. Заодно исчезла
   // перевёрстка страницы мессенджера при каждом открытии настроек.
-  if (isInterfaceLocked || isOverlayOpen) {
+  //
+  // Без связи вкладка тоже прячется: вместо страницы ошибки Chromium, которую
+  // легко принять за выход из аккаунта, оболочка показывает свой экран.
+  if (isInterfaceLocked || isOverlayOpen || accountStatuses.get(activeAccountId) === "offline") {
     view.setVisible(false);
     return;
   }
@@ -442,13 +460,13 @@ function layoutActiveView() {
   view.setVisible(true);
 
   const bounds = win.getContentBounds();
-  const reservedHeight = getTopbarHeight() + getToolbarHeight();
+  const sidebarWidth = getSidebarWidth();
 
   view.setBounds({
-    x: 0,
-    y: reservedHeight,
-    width: Math.max(320, bounds.width),
-    height: Math.max(240, bounds.height - reservedHeight)
+    x: sidebarWidth,
+    y: 0,
+    width: Math.max(320, bounds.width - sidebarWidth),
+    height: Math.max(240, bounds.height)
   });
 }
 
@@ -458,12 +476,21 @@ function scheduleLayoutActiveView() {
   setTimeout(layoutActiveView, 260);
 }
 
-function getTopbarHeight() {
-  return appSettings.compactMode ? compactTopbarHeight : regularTopbarHeight;
+function getSidebarWidth() {
+  return appSettings.compactMode ? compactSidebarWidth : regularSidebarWidth;
 }
 
-function getToolbarHeight() {
-  return appSettings.compactMode ? compactToolbarHeight : regularToolbarHeight;
+// Тема «как в системе», светлая или тёмная. nativeTheme меняет и
+// prefers-color-scheme для всех страниц, поэтому вслед за оболочкой
+// переключаются меню, диалоги и мессенджеры, которые следуют теме системы.
+function applyTheme() {
+  const theme = ["light", "dark"].includes(appSettings.theme) ? appSettings.theme : "system";
+  nativeTheme.themeSource = theme;
+  windowRef?.setBackgroundColor(windowBackgroundColor());
+}
+
+function windowBackgroundColor() {
+  return nativeTheme.shouldUseDarkColors ? "#111317" : "#EEF0F3";
 }
 
 function schedulePersistWindowState() {
@@ -548,6 +575,16 @@ ipcMain.handle("accounts:menu", (_event, id) => {
     {
       label: "Редактировать",
       click: () => sendToRenderer("accounts:edit", { accountId: account.id })
+    },
+    {
+      label: "Уведомления",
+      type: "checkbox",
+      checked: account.notificationsEnabled !== false,
+      click: (menuItem) => {
+        updateAccount(account.id, { notificationsEnabled: menuItem.checked });
+        webAccounts = loadAccounts();
+        broadcastAccountState();
+      }
     },
     { type: "separator" },
     {
@@ -649,6 +686,7 @@ async function removeAccountById(id, options = {}) {
   reloadsAfterCrash.delete(id);
   failedAccounts.delete(id);
   seenUnreadBaseline.delete(id);
+  lastLoadErrors.delete(id);
   forgetAccount(id);
   webAccounts = removeAccount(id);
   activeAccountId = activeAccountId === id ? webAccounts[0]?.id : activeAccountId;
@@ -686,6 +724,7 @@ ipcMain.handle("settings:update", (_event, patch) => {
   const { pinEnabled, pinHash, pinSalt, ...safePatch } = patch || {};
   appSettings = updateSettings(safePatch);
   applyLoginItemSettings();
+  applyTheme();
   createApplicationMenu();
   registerGlobalShortcut();
   layoutActiveView();
@@ -824,19 +863,34 @@ function applyAccountZoom(view, accountId) {
 }
 
 ipcMain.handle("view:back", () => {
-  const view = activeView();
-  if (view?.webContents.navigationHistory.canGoBack()) {
-    view.webContents.navigationHistory.goBack();
-  }
+  goBackInActiveView();
   return { ok: true };
 });
 
 ipcMain.handle("view:forward", () => {
+  goForwardInActiveView();
+  return { ok: true };
+});
+
+// Кнопок «Назад» и «Вперёд» в окне больше нет — мессенджеру они почти не нужны.
+// Остались пункты меню с Cmd+[ и Cmd+].
+function goBackInActiveView() {
+  const view = activeView();
+  if (view?.webContents.navigationHistory.canGoBack()) {
+    view.webContents.navigationHistory.goBack();
+  }
+}
+
+function goForwardInActiveView() {
   const view = activeView();
   if (view?.webContents.navigationHistory.canGoForward()) {
     view.webContents.navigationHistory.goForward();
   }
-  return { ok: true };
+}
+
+ipcMain.handle("updates:check", async () => {
+  await checkForUpdates({ feedUrl: appSettings.updateFeedUrl, silent: false });
+  return { updateStatus: getUpdateStatus() };
 });
 
 ipcMain.handle("view:devtools", () => {
@@ -938,6 +992,7 @@ function accountStatePayload(extra = {}) {
     activeAccountId,
     unreadCounts: Object.fromEntries(unreadCounts),
     accountStatuses: Object.fromEntries(accountStatuses),
+    accountRetries: accountRetryInfo(),
     updateStatus: getUpdateStatus(),
     isDevToolsEnabled,
     settings: appSettings,
@@ -1020,6 +1075,13 @@ function setAccountStatus(accountId, status) {
   }
 
   accountStatuses.set(accountId, status);
+
+  // Открытый аккаунт потерял связь или вернулся — вкладку надо спрятать
+  // или показать снова.
+  if (accountId === activeAccountId) {
+    layoutActiveView();
+  }
+
   broadcastAccountState();
 }
 
@@ -1030,6 +1092,7 @@ function markAccountReady(account) {
 
   retryAttempts.delete(account.id);
   reloadsAfterCrash.delete(account.id);
+  lastLoadErrors.delete(account.id);
   clearAccountRetry(account.id);
   setAccountStatus(account.id, "ready");
 }
@@ -1052,18 +1115,43 @@ function scheduleAccountRetry(account) {
 
   const timer = setTimeout(() => {
     retryTimers.delete(account.id);
+    retryAt.delete(account.id);
     loadAccountView(account);
   }, delay);
 
   retryTimers.set(account.id, timer);
+  retryAt.set(account.id, Date.now() + delay);
+  // Статус «нет связи» уже разослан, а время повтора стало известно только сейчас.
+  broadcastAccountState();
 }
 
 function clearAccountRetry(accountId) {
+  retryAt.delete(accountId);
   const timer = retryTimers.get(accountId);
   if (timer) {
     clearTimeout(timer);
     retryTimers.delete(accountId);
   }
+}
+
+// Для аккаунтов без связи: когда следующий повтор (0 — повтора не будет,
+// страница сдалась после нескольких падений), какая попытка и с какой ошибкой.
+function accountRetryInfo() {
+  const info = {};
+
+  for (const account of webAccounts) {
+    if (accountStatuses.get(account.id) !== "offline") {
+      continue;
+    }
+
+    info[account.id] = {
+      at: retryAt.get(account.id) || 0,
+      attempt: retryAttempts.get(account.id) || 0,
+      error: lastLoadErrors.get(account.id) || ""
+    };
+  }
+
+  return info;
 }
 
 function retryOfflineAccounts(reason) {
@@ -1307,6 +1395,8 @@ function createApplicationMenu() {
       },
       onSelectAccount: selectAccount,
       onReloadView: reloadActiveAccount,
+      onGoBack: goBackInActiveView,
+      onGoForward: goForwardInActiveView,
       onZoom: zoomActiveAccount,
       onQuit: quitApp
     }
@@ -1374,6 +1464,8 @@ if (!app.requestSingleInstanceLock()) {
 
     // Человек заблокировал компьютер или закрыл крышку — значит, отошёл.
     powerMonitor.on("lock-screen", requestRendererLock);
+    // Тема «как в системе»: фон окна, видимый до отрисовки страницы, следует за ней.
+    nativeTheme.on("updated", () => windowRef?.setBackgroundColor(windowBackgroundColor()));
     powerMonitor.on("suspend", requestRendererLock);
     startIdleLockWatch();
   });
