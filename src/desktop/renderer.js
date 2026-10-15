@@ -12,14 +12,17 @@ const addButton = $("addButton");
 const lockButton = $("lockButton");
 const settingsButton = $("settingsButton");
 
-const emptyScreen = $("emptyScreen");
-const emptyAddButton = $("emptyAddButton");
-const offlineScreen = $("offlineScreen");
-const offlineTitle = $("offlineTitle");
-const offlineText = $("offlineText");
-const offlineMeta = $("offlineMeta");
-const retryButton = $("retryButton");
-const offlineLogsButton = $("offlineLogsButton");
+const tabList = $("tabList");
+const tabSearchButton = $("tabSearchButton");
+const tabAddButton = $("tabAddButton");
+const tabLockButton = $("tabLockButton");
+const tabSettingsButton = $("tabSettingsButton");
+const stripCurrent = $("stripCurrent");
+const stripUnread = $("stripUnread");
+const stripAccountsButton = $("stripAccountsButton");
+const stripPanelButton = $("stripPanelButton");
+const panelKbd = $("panelKbd");
+const panes = [...document.querySelectorAll(".pane")];
 
 const addBackdrop = $("addBackdrop");
 const addForm = $("addForm");
@@ -58,7 +61,8 @@ const disablePinButton = $("disablePinButton");
 const pinMessage = $("pinMessage");
 const operatorNameInput = $("operatorNameInput");
 const themeInput = $("themeInput");
-const compactModeInput = $("compactModeInput");
+const layoutPicker = $("layoutPicker");
+const layoutHint = $("layoutHint");
 const launchAtLoginInput = $("launchAtLoginInput");
 const backgroundInput = $("backgroundInput");
 const globalShortcutLabel = $("globalShortcutLabel");
@@ -112,6 +116,11 @@ let isLocked = false;
 let lockPausedUntil = 0;
 let drawnTaskbarBadge = "";
 let operatorNameTimer;
+// Раскладка и, для двух аккаунтов рядом, правая половина и активная половина.
+let layout = "sidebar";
+let secondaryAccountId;
+let focusedPane = 0;
+const layouts = ["sidebar", "rail", "tabs", "hidden", "split"];
 
 document.documentElement.classList.add(`platform-${currentPlatform}`);
 
@@ -125,6 +134,18 @@ const platformIcons = {
   instagram:
     '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4.5" y="4.5" width="15" height="15" rx="4.5"></rect><circle cx="12" cy="12" r="3.6"></circle><circle cx="16.6" cy="7.4" r="0.7" fill="currentColor"></circle></svg>'
 };
+
+const swapIcon =
+  '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h12l-3-3M17 17H5l3 3"></path></svg>';
+
+const closeIcon =
+  '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>';
+
+const plusIcon =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>';
+
+const offlineIcon =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l18 18"></path><path d="M8.5 16.5a5 5 0 0 1 7 0"></path><path d="M5 12.9a10 10 0 0 1 4.3-2.4"></path><path d="M14.7 10.5A10 10 0 0 1 19 12.9"></path><path d="M2 9a15 15 0 0 1 4.5-2.9"></path><path d="M11 5.1A15 15 0 0 1 22 9"></path><circle cx="12" cy="19.5" r="0.7" fill="currentColor"></circle></svg>';
 
 const moreIcon =
   '<svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="18" cy="12" r="1.6"></circle></svg>';
@@ -181,6 +202,8 @@ function syncOverlay() {
 function applyState(state) {
   accounts = state.accounts || accounts;
   activeAccountId = state.activeAccountId;
+  secondaryAccountId = state.secondaryAccountId;
+  focusedPane = state.focusedPane || 0;
   unreadCounts = state.unreadCounts || {};
   accountStatuses = state.accountStatuses || accountStatuses;
   accountRetries = state.accountRetries || {};
@@ -201,8 +224,21 @@ function applyState(state) {
   }
 }
 
+// Раскладка до выбора раскладок задавалась переключателем «компактная панель».
+// То же правило — в layout.cjs.
+function normalizeLayout(value = settings) {
+  if (layouts.includes(value.layout)) return value.layout;
+  return value.compactMode ? "rail" : "sidebar";
+}
+
+function isCompact() {
+  return layout === "rail" || layout === "split";
+}
+
 function applySettingsMode() {
-  document.body.classList.toggle("compactMode", Boolean(settings.compactMode));
+  layout = normalizeLayout(settings);
+  document.documentElement.dataset.layout = layout;
+  document.body.classList.toggle("compactMode", isCompact());
 }
 
 // ───────────── Боковая панель ─────────────
@@ -245,7 +281,7 @@ function renderSidebar() {
   unreadLine.textContent =
     total > 0 ? `${total} ${pluralize(total, "непрочитанное", "непрочитанных", "непрочитанных")}` : "";
 
-  const compact = Boolean(settings.compactMode);
+  const compact = isCompact();
   collapseButton.setAttribute("aria-label", compact ? "Развернуть панель" : "Свернуть панель");
   collapseButton.title = compact ? "Развернуть панель" : "Свернуть панель";
   collapseArrow.setAttribute("d", compact ? "M13 10l2 2-2 2" : "M15 10l-2 2 2 2");
@@ -253,6 +289,10 @@ function renderSidebar() {
   searchButton.title = compact ? `Перейти к аккаунту (${modKey}K)` : "";
   addButton.title = compact ? "Добавить аккаунт" : "";
   lockButton.hidden = !settings.pinEnabled;
+  tabLockButton.hidden = !settings.pinEnabled;
+
+  renderTabs();
+  renderStrip();
 
   if (accounts.length === 0) {
     accountList.replaceChildren(el("p", "emptyAccounts", "Добавьте первый аккаунт кнопкой внизу."));
@@ -267,19 +307,23 @@ function renderAccountItem(account, index) {
   const unread = unreadCounts[account.id] || 0;
   const muted = account.notificationsEnabled === false;
   const isActive = account.id === activeAccountId;
+  const isSecondary = layout === "split" && account.id === secondaryAccountId;
 
-  const row = el("button", `account${isActive ? " active" : ""}${state.queued ? " queued" : ""}`);
+  const row = el(
+    "button",
+    `account${isActive ? " active" : ""}${isSecondary ? " secondary" : ""}${state.queued ? " queued" : ""}`
+  );
   row.type = "button";
   row.draggable = true;
   row.dataset.accountId = account.id;
-  if (isActive) row.setAttribute("aria-current", "page");
+  if (isActive || isSecondary) row.setAttribute("aria-current", "page");
   row.setAttribute(
     "aria-label",
     `${account.label}, ${state.sub}${unread ? `, ${unread} ${pluralize(unread, "непрочитанное", "непрочитанных", "непрочитанных")}` : ""}`
   );
   // Свернутую панель видно только значками: название и состояние — в системной
   // подсказке. Своя подсказка не годится: её закрыла бы страница мессенджера.
-  row.title = settings.compactMode
+  row.title = isCompact()
     ? `${account.label} — ${state.sub}${unread ? ` · непрочитанных: ${unread}` : ""}${index < 9 ? ` · ${modKey}${index + 1}` : ""}`
     : "";
 
@@ -308,24 +352,102 @@ function renderAccountItem(account, index) {
   return row;
 }
 
+// ───────────── Вкладки сверху ─────────────
+
+function renderTabs() {
+  if (layout !== "tabs") {
+    tabList.replaceChildren();
+    return;
+  }
+
+  tabList.replaceChildren(
+    ...accounts.map((account, index) => {
+      const state = accountState(account);
+      const unread = unreadCounts[account.id] || 0;
+      const isActive = account.id === activeAccountId;
+
+      const tab = el("button", `tab${isActive ? " active" : ""}${state.queued ? " queued" : ""}`);
+      tab.type = "button";
+      tab.draggable = true;
+      tab.dataset.accountId = account.id;
+      if (isActive) tab.setAttribute("aria-current", "page");
+      // Строки состояния во вкладке нет — она в подсказке.
+      tab.title = `${account.label} — ${state.sub}${index < 9 ? ` · ${modKey}${index + 1}` : ""}`;
+
+      const tile = platformTile(account.platform);
+      if (state.dot) tile.append(el("span", `statusDot ${state.dot}`));
+      tab.append(tile, el("span", "tabName", account.label));
+      if (unread > 0) {
+        tab.append(el("span", `badge${account.notificationsEnabled === false ? " muted" : ""}`, badgeText(unread)));
+      }
+
+      tab.addEventListener("click", () => void window.messengerShell.selectAccount(account.id));
+      tab.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        void window.messengerShell.openAccountMenu(account.id);
+      });
+      bindDrag(tab, account.id, "x");
+      return tab;
+    })
+  );
+}
+
+// ───────────── Без панели ─────────────
+
+// В тонкой полосе — какой аккаунт открыт и сколько ждёт в остальных:
+// иначе без панели о новых сообщениях в других аккаунтах не узнать.
+function renderStrip() {
+  if (layout !== "hidden") {
+    return;
+  }
+
+  const active = accounts.find((account) => account.id === activeAccountId);
+  if (active) {
+    const state = accountState(active);
+    const index = accounts.indexOf(active);
+    stripCurrent.replaceChildren(
+      platformTile(active.platform),
+      el("span", "", active.label),
+      el("span", state.tone || "muted", state.tone ? state.sub : platformName(active.platform)),
+      ...(index < 9 ? [el("span", "muted", `${modKey}${index + 1}`)] : [])
+    );
+  } else {
+    stripCurrent.replaceChildren(el("span", "muted", "Аккаунтов пока нет"));
+  }
+
+  const others = accounts
+    .filter((account) => account.id !== activeAccountId)
+    .reduce((sum, account) => sum + (unreadCounts[account.id] || 0), 0);
+  stripUnread.hidden = others === 0;
+  stripUnread.replaceChildren(el("span", "badge", badgeText(others)), document.createTextNode("в других аккаунтах"));
+  panelKbd.textContent = `${modKey}\\`;
+}
+
 // Отсчёт «повтор через N с» обновляется раз в секунду точечно: пересборка
-// списка сбила бы перетаскивание и наведение.
+// списка сбила бы перетаскивание, наведение и нажатие кнопок.
 function refreshCountdowns() {
   const offline = accounts.filter((account) => accountRetries[account.id]?.at);
+  if (offline.length === 0) {
+    return;
+  }
 
   for (const account of offline) {
     const sub = accountList.querySelector(`[data-account-id="${CSS.escape(account.id)}"] .accountSub`);
     if (sub) sub.textContent = accountState(account).sub;
+
+    const screen = document.querySelector(`[data-offline-for="${CSS.escape(account.id)}"]`);
+    if (screen) {
+      screen.querySelector("h1").textContent = offlineTitle(account);
+      screen.querySelector(".offlineText").textContent = offlineText(account);
+    }
   }
 
-  if (offline.some((account) => account.id === activeAccountId)) {
-    renderContent();
-  }
+  renderStrip();
 }
 
 // ───────────── Перетаскивание ─────────────
 
-function bindDrag(row, accountId) {
+function bindDrag(row, accountId, axis = "y") {
   row.addEventListener("dragstart", (event) => {
     draggedAccountId = accountId;
     row.classList.add("dragging");
@@ -340,7 +462,7 @@ function bindDrag(row, accountId) {
 
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    const after = isLowerHalf(event, row);
+    const after = isAfterMiddle(event, row, axis);
     row.classList.toggle("dropAfter", after);
     row.classList.toggle("dropBefore", !after);
   });
@@ -351,7 +473,7 @@ function bindDrag(row, accountId) {
 
   row.addEventListener("drop", (event) => {
     event.preventDefault();
-    const after = isLowerHalf(event, row);
+    const after = isAfterMiddle(event, row, axis);
     row.classList.remove("dropBefore", "dropAfter");
     void reorderDraggedAccount(accountId, after);
   });
@@ -359,9 +481,12 @@ function bindDrag(row, accountId) {
   row.addEventListener("dragend", clearDragState);
 }
 
-function isLowerHalf(event, row) {
+// Список в панели — сверху вниз, вкладки — слева направо.
+function isAfterMiddle(event, row, axis) {
   const rect = row.getBoundingClientRect();
-  return event.clientY > rect.top + rect.height / 2;
+  return axis === "x"
+    ? event.clientX > rect.left + rect.width / 2
+    : event.clientY > rect.top + rect.height / 2;
 }
 
 async function reorderDraggedAccount(targetAccountId, placeAfter) {
@@ -391,7 +516,7 @@ async function reorderDraggedAccount(targetAccountId, placeAfter) {
 
 function clearDragState() {
   draggedAccountId = undefined;
-  accountList.querySelectorAll(".dragging, .dropBefore, .dropAfter").forEach((row) => {
+  document.querySelectorAll(".dragging, .dropBefore, .dropAfter").forEach((row) => {
     row.classList.remove("dragging", "dropBefore", "dropAfter");
   });
 }
@@ -399,38 +524,173 @@ function clearDragState() {
 // ───────────── Область мессенджера ─────────────
 
 // Видна, только когда страница мессенджера спрятана: аккаунтов нет или у
-// открытого аккаунта нет связи.
+// открытого аккаунта нет связи. В раскладке «два аккаунта рядом» — у каждой
+// половины своя шапка и свой экран.
+//
+// Пересобирается, только когда что-то поменялось по существу: состояние
+// рассылается при каждом новом сообщении, и пересборка под курсором съедала
+// бы нажатия на кнопки.
 function renderContent() {
-  const active = accounts.find((account) => account.id === activeAccountId);
-  const isOffline = Boolean(active) && accountStatuses[active.id] === "offline";
+  const paneAccountIds = [activeAccountId, layout === "split" ? secondaryAccountId : undefined];
 
-  emptyScreen.hidden = accounts.length > 0;
-  offlineScreen.hidden = !isOffline;
+  panes.forEach((pane, index) => {
+    const account = accounts.find((item) => item.id === paneAccountIds[index]);
+    const header = pane.querySelector(".paneHeader");
+    const body = pane.querySelector(".paneBody");
 
-  if (!isOffline) {
+    const unread = account ? unreadCounts[account.id] || 0 : 0;
+    const headerKey = layout === "split"
+      ? [account?.id, account?.label, unread, account?.notificationsEnabled, focusedPane === index].join("|")
+      : "";
+    if (header.dataset.key !== headerKey) {
+      header.dataset.key = headerKey;
+      renderPaneHeader(header, account, index, unread);
+    }
+
+    const status = account ? accountStatuses[account.id] : "";
+    const bodyKey = [layout, accounts.length, account?.id, account?.label, status, Boolean(accountRetries[account?.id]?.at)].join("|");
+    if (body.dataset.key !== bodyKey) {
+      body.dataset.key = bodyKey;
+      body.replaceChildren(...paneScreens(account, index));
+    }
+  });
+}
+
+function renderPaneHeader(header, account, index, unread) {
+  if (layout !== "split") {
+    header.replaceChildren();
     return;
   }
 
-  const name = platformName(active.platform);
-  const retry = accountRetries[active.id] || {};
-  const relogin = active.platform === "instagram" ? "входить заново" : "сканировать QR-код заново";
+  header.classList.toggle("focused", focusedPane === index && Boolean(account));
 
-  if (retry.at) {
-    const seconds = Math.ceil((retry.at - Date.now()) / 1000);
-    offlineTitle.textContent = `Нет связи с ${name}`;
-    offlineText.textContent = `${
-      seconds > 0
-        ? `Аккаунт «${active.label}» переподключится сам через ${seconds} с.`
-        : `Аккаунт «${active.label}» переподключается.`
-    } Сессия входа сохранена — ${relogin} не придётся.`;
-  } else {
-    offlineTitle.textContent = "Страница аккаунта не поднимается";
-    offlineText.textContent = `Страница «${active.label}» несколько раз подряд закрылась с ошибкой. Нажмите «Повторить сейчас» — вход при этом сохранится.`;
+  if (!account) {
+    header.replaceChildren(el("span", "paneName", "Второй аккаунт"));
+    return;
   }
 
-  offlineMeta.textContent = [retry.attempt ? `Попытка ${retry.attempt}` : "", retry.error || ""]
-    .filter(Boolean)
-    .join(" · ");
+  const parts = [platformTile(account.platform), el("span", "paneName", account.label)];
+  if (unread > 0) {
+    parts.push(el("span", `badge${account.notificationsEnabled === false ? " muted" : ""}`, badgeText(unread)));
+  }
+  parts.push(
+    el("span", "push"),
+    iconAction(swapIcon, "Поменять половины местами", () => void window.messengerShell.swapPanes())
+  );
+  if (index === 1) {
+    parts.push(iconAction(closeIcon, "Оставить один аккаунт", () => void window.messengerShell.closeSplit()));
+  }
+  header.replaceChildren(...parts);
+}
+
+function iconAction(icon, label, onClick) {
+  const button = el("button", "iconButton");
+  button.type = "button";
+  button.innerHTML = icon;
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    onClick();
+  });
+  return button;
+}
+
+function textButton(label, primary, onClick) {
+  const button = el("button", `button${primary ? " primary" : ""}`, label);
+  button.type = "button";
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+function stateScreen({ icon, tone, title, text, actions = [], meta }) {
+  const screen = el("section", "stateScreen");
+  const iconBox = el("div", `stateIcon${tone ? ` ${tone}` : ""}`);
+  iconBox.setAttribute("aria-hidden", "true");
+  iconBox.innerHTML = icon;
+  screen.append(iconBox, el("h1", "", title), el("p", "offlineText", text));
+
+  if (actions.length) {
+    const row = el("div", "stateActions");
+    row.append(...actions);
+    screen.append(row);
+  }
+
+  if (meta) {
+    screen.append(el("p", "stateMeta", meta));
+  }
+
+  return screen;
+}
+
+function paneScreens(account, index) {
+  if (accounts.length === 0) {
+    return index === 0
+      ? [
+          stateScreen({
+            icon: plusIcon,
+            title: "Аккаунтов пока нет",
+            text: "Добавьте WhatsApp, Telegram или Instagram — каждый аккаунт хранит свой вход отдельно.",
+            actions: [textButton("Добавить аккаунт", true, openAddModal)]
+          })
+        ]
+      : [];
+  }
+
+  if (!account) {
+    return index === 1
+      ? [
+          stateScreen({
+            icon: plusIcon,
+            title: "Нужен второй аккаунт",
+            text: "Добавьте ещё один аккаунт, чтобы открыть два рядом.",
+            actions: [textButton("Добавить аккаунт", true, openAddModal)]
+          })
+        ]
+      : [];
+  }
+
+  if (accountStatuses[account.id] !== "offline") {
+    return [];
+  }
+
+  const retry = accountRetries[account.id] || {};
+  const screen = stateScreen({
+    icon: offlineIcon,
+    tone: "warn",
+    title: offlineTitle(account),
+    text: offlineText(account),
+    actions: [
+      textButton("Повторить сейчас", true, () => void window.messengerShell.reload(account.id)),
+      textButton("Показать логи", false, () => void window.messengerShell.showLogs())
+    ],
+    meta: [retry.attempt ? `Попытка ${retry.attempt}` : "", retry.error || ""].filter(Boolean).join(" · ")
+  });
+  screen.dataset.offlineFor = account.id;
+  screen.setAttribute("aria-live", "polite");
+  return [screen];
+}
+
+function offlineTitle(account) {
+  return accountRetries[account.id]?.at
+    ? `Нет связи с ${platformName(account.platform)}`
+    : "Страница аккаунта не поднимается";
+}
+
+function offlineText(account) {
+  const retry = accountRetries[account.id] || {};
+  const relogin = account.platform === "instagram" ? "входить заново" : "сканировать QR-код заново";
+
+  if (!retry.at) {
+    return `Страница «${account.label}» несколько раз подряд закрылась с ошибкой. Нажмите «Повторить сейчас» — вход при этом сохранится.`;
+  }
+
+  const seconds = Math.ceil((retry.at - Date.now()) / 1000);
+  return `${
+    seconds > 0
+      ? `Аккаунт «${account.label}» переподключится сам через ${seconds} с.`
+      : `Аккаунт «${account.label}» переподключается.`
+  } Сессия входа сохранена — ${relogin} не придётся.`;
 }
 
 // ───────────── Быстрый переход ─────────────
@@ -626,7 +886,6 @@ addBackdrop.addEventListener("click", (event) => {
   if (event.target === addBackdrop) closeAddModal();
 });
 addButton.addEventListener("click", openAddModal);
-emptyAddButton.addEventListener("click", openAddModal);
 
 // ───────────── Редактирование аккаунта ─────────────
 
@@ -714,7 +973,6 @@ function renderSettingsForm() {
   lockAfterInput.value = String(lockAfterMinutesValue(settings.lockAfterMinutes));
   operatorNameInput.value = settings.operatorName || "";
   themeInput.value = ["light", "dark"].includes(settings.theme) ? settings.theme : "system";
-  compactModeInput.checked = Boolean(settings.compactMode);
   launchAtLoginInput.checked = Boolean(settings.launchAtLogin);
   backgroundInput.checked = settings.keepInBackground !== false;
   globalShortcutInput.checked = settings.globalShortcutEnabled !== false;
@@ -729,7 +987,14 @@ function renderSettingsLive() {
   renderPinSection();
   renderGlobalShortcut();
   renderAbout();
-  compactModeInput.checked = Boolean(settings.compactMode);
+  renderLayoutPicker();
+}
+
+function renderLayoutPicker() {
+  layoutPicker.querySelectorAll('input[name="layout"]').forEach((input) => {
+    input.checked = input.value === layout;
+  });
+  layoutHint.textContent = `${modKey}\\ — быстро спрятать панель и вернуть её обратно`;
 }
 
 function renderSettingsAccounts() {
@@ -882,7 +1147,11 @@ function bindSwitch(input, key) {
 
 bindSwitch(notificationsInput, "notificationsEnabled");
 bindSwitch(messagePreviewsInput, "messagePreviewsEnabled");
-bindSwitch(compactModeInput, "compactMode");
+layoutPicker.addEventListener("change", (event) => {
+  if (event.target.name === "layout") {
+    void saveSettings({ layout: event.target.value });
+  }
+});
 bindSwitch(launchAtLoginInput, "launchAtLogin");
 bindSwitch(backgroundInput, "keepInBackground");
 bindSwitch(globalShortcutInput, "globalShortcutEnabled");
@@ -1171,11 +1440,26 @@ function drawTaskbarBadge(text) {
 // ───────────── Общие события ─────────────
 
 collapseButton.addEventListener("click", () => {
-  void saveSettings({ compactMode: !settings.compactMode });
+  void saveSettings({ layout: layout === "sidebar" ? "rail" : "sidebar" });
 });
 searchButton.addEventListener("click", openCommandPalette);
-retryButton.addEventListener("click", () => void window.messengerShell.reload());
-offlineLogsButton.addEventListener("click", () => void window.messengerShell.showLogs());
+tabSearchButton.addEventListener("click", openCommandPalette);
+tabAddButton.addEventListener("click", openAddModal);
+tabLockButton.addEventListener("click", showLock);
+tabSettingsButton.addEventListener("click", () => openSettings());
+stripAccountsButton.addEventListener("click", openCommandPalette);
+stripPanelButton.addEventListener("click", () => void window.messengerShell.togglePanel());
+
+// Щелчок по шапке половины делает её активной: туда откроется выбранный аккаунт.
+panes.forEach((pane, index) => {
+  pane.querySelector(".paneHeader").addEventListener("mousedown", () => {
+    void window.messengerShell.focusPane(index);
+  });
+});
+
+document.querySelectorAll(".modK").forEach((kbd) => {
+  kbd.textContent = `${modKey}K`;
+});
 
 document.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -1196,6 +1480,8 @@ document.addEventListener("keydown", (event) => {
 
 window.messengerShell.onAccountChanged((state) => {
   activeAccountId = state.activeAccountId;
+  secondaryAccountId = state.secondaryAccountId;
+  focusedPane = state.focusedPane || 0;
   renderSidebar();
   renderContent();
 });

@@ -144,6 +144,28 @@ check("Cmd+[ и Cmd+] листают историю открытого месс�
   assert.deepStrictEqual(calls, ["back", "forward"]);
 });
 
+check("в «Виде» выбирается раскладка, отмечена текущая", () => {
+  let chosen;
+  const items = section(
+    buildMenuTemplate({ layout: "tabs", actions: { onSetLayout: (v) => { chosen = v; } } }),
+    "Вид"
+  );
+  const layouts = items.find((i) => i.label === "Раскладка").submenu;
+  assert.strictEqual(layouts.length, 5);
+  assert.deepStrictEqual(layouts.filter((i) => i.checked).map((i) => i.label), ["Вкладки сверху"]);
+  layouts.find((i) => i.label === "Два аккаунта рядом").click();
+  assert.strictEqual(chosen, "split");
+});
+
+check("Cmd+\\ прячет панель, а без панели — показывает её", () => {
+  const find = (layout) =>
+    section(buildMenuTemplate({ layout, actions: {} }), "Вид").find(
+      (i) => i.accelerator === "CommandOrControl+\\"
+    ).label;
+  assert.strictEqual(find("sidebar"), "Скрыть панель");
+  assert.strictEqual(find("hidden"), "Показать панель");
+});
+
 check("масштаб: Cmd+Plus, Cmd+= и Cmd+- меняют его, Cmd+0 сбрасывает", () => {
   const calls = [];
   const items = section(buildMenuTemplate({ actions: { onZoom: (d) => calls.push(d) } }), "Вид");

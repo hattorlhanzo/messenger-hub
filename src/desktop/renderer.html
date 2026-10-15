@@ -50,31 +50,57 @@
       </div>
     </aside>
 
-    <!-- Сама страница мессенджера лежит поверх этой области отдельным слоем.
-         Оболочка рисует здесь только то, что видно, когда этот слой спрятан. -->
-    <main class="content" id="content">
-      <section class="stateScreen" id="emptyScreen" hidden>
-        <div class="stateIcon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
-        </div>
-        <h1>Аккаунтов пока нет</h1>
-        <p>Добавьте WhatsApp, Telegram или Instagram — каждый аккаунт хранит свой вход отдельно.</p>
-        <div class="stateActions">
-          <button class="button primary" id="emptyAddButton" type="button">Добавить аккаунт</button>
-        </div>
-      </section>
+    <!-- Раскладка «Вкладки сверху»: аккаунты в полосе заголовка окна. -->
+    <header class="tabBar dragRegion" id="tabBar">
+      <div class="windowButtonsSpace" aria-hidden="true"></div>
+      <nav class="tabList" id="tabList" aria-label="Аккаунты"></nav>
+      <div class="barActions">
+        <button class="barSearch" id="tabSearchButton" type="button" aria-label="Перейти к аккаунту">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4.5 4.5"></path></svg>
+          <kbd class="modK"></kbd>
+        </button>
+        <button class="iconButton small" id="tabAddButton" type="button" aria-label="Добавить аккаунт" title="Добавить аккаунт">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+        </button>
+        <button class="iconButton small" id="tabLockButton" type="button" aria-label="Заблокировать" title="Заблокировать" hidden>
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2"></rect><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"></path></svg>
+        </button>
+        <button class="iconButton small" id="tabSettingsButton" type="button" aria-label="Настройки" title="Настройки">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg>
+        </button>
+      </div>
+    </header>
 
-      <section class="stateScreen" id="offlineScreen" aria-live="polite" hidden>
-        <div class="stateIcon warn" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 3l18 18"></path><path d="M8.5 16.5a5 5 0 0 1 7 0"></path><path d="M5 12.9a10 10 0 0 1 4.3-2.4"></path><path d="M14.7 10.5A10 10 0 0 1 19 12.9"></path><path d="M2 9a15 15 0 0 1 4.5-2.9"></path><path d="M11 5.1A15 15 0 0 1 22 9"></path><circle cx="12" cy="19.5" r="0.7" fill="currentColor"></circle></svg>
-        </div>
-        <h1 id="offlineTitle"></h1>
-        <p id="offlineText"></p>
-        <div class="stateActions">
-          <button class="button primary" id="retryButton" type="button">Повторить сейчас</button>
-          <button class="button" id="offlineLogsButton" type="button">Показать логи</button>
-        </div>
-        <p class="stateMeta" id="offlineMeta"></p>
+    <!-- Раскладка «Без панели»: тонкая полоса с открытым аккаунтом и кнопкой списка. -->
+    <header class="strip dragRegion" id="strip">
+      <div class="windowButtonsSpace" aria-hidden="true"></div>
+      <div class="stripCurrent" id="stripCurrent"></div>
+      <div class="stripActions">
+        <span class="stripUnread" id="stripUnread" hidden></span>
+        <button class="stripButton" id="stripAccountsButton" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h14"></path></svg>
+          Аккаунты
+          <kbd class="modK"></kbd>
+        </button>
+        <button class="stripButton" id="stripPanelButton" type="button" title="Вернуть панель">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="14" rx="2.5"></rect><path d="M9 5v14"></path></svg>
+          <kbd id="panelKbd"></kbd>
+        </button>
+      </div>
+    </header>
+
+    <!-- Сами страницы мессенджеров лежат поверх этих половин отдельными слоями.
+         Оболочка рисует здесь только то, что видно, когда слой спрятан, и шапки
+         половин в раскладке «Два аккаунта рядом». -->
+    <main class="content" id="content">
+      <section class="pane" data-pane="0">
+        <div class="paneHeader"></div>
+        <div class="paneBody"></div>
+      </section>
+      <div class="paneDivider" aria-hidden="true"></div>
+      <section class="pane" data-pane="1">
+        <div class="paneHeader"></div>
+        <div class="paneBody"></div>
       </section>
     </main>
 
@@ -240,10 +266,37 @@
                 <option value="dark">Тёмная</option>
               </select>
             </div>
-            <div class="settingRow">
-              <span><span class="settingLabel">Компактная боковая панель</span><span class="settingDesc">Только значки — больше места для мессенджера</span></span>
-              <input class="switch" id="compactModeInput" type="checkbox" aria-label="Компактная боковая панель" />
-            </div>
+            <fieldset class="layoutPicker" id="layoutPicker">
+              <legend class="settingLabel">Раскладка</legend>
+              <span class="settingDesc" id="layoutHint"></span>
+              <div class="layoutCards">
+                <label class="layoutCard">
+                  <input type="radio" name="layout" value="sidebar" />
+                  <span class="layoutPreview preview-sidebar" aria-hidden="true"><i></i><b></b></span>
+                  Боковая панель
+                </label>
+                <label class="layoutCard">
+                  <input type="radio" name="layout" value="rail" />
+                  <span class="layoutPreview preview-rail" aria-hidden="true"><i></i><b></b></span>
+                  Узкая полоса
+                </label>
+                <label class="layoutCard">
+                  <input type="radio" name="layout" value="tabs" />
+                  <span class="layoutPreview preview-tabs" aria-hidden="true"><i></i><b></b></span>
+                  Вкладки сверху
+                </label>
+                <label class="layoutCard">
+                  <input type="radio" name="layout" value="hidden" />
+                  <span class="layoutPreview preview-hidden" aria-hidden="true"><i></i><b></b></span>
+                  Без панели
+                </label>
+                <label class="layoutCard">
+                  <input type="radio" name="layout" value="split" />
+                  <span class="layoutPreview preview-split" aria-hidden="true"><i></i><b></b><b></b></span>
+                  Два аккаунта рядом
+                </label>
+              </div>
+            </fieldset>
             <div class="settingRow">
               <span class="settingLabel">Запускать при входе в систему</span>
               <input class="switch" id="launchAtLoginInput" type="checkbox" aria-label="Запускать при входе в систему" />

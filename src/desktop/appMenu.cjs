@@ -62,9 +62,18 @@ function buildAccountItems({ accounts, activeAccountId, onSelectAccount }) {
   }));
 }
 
+const layoutItems = [
+  ["sidebar", "Боковая панель"],
+  ["rail", "Узкая полоса"],
+  ["tabs", "Вкладки сверху"],
+  ["hidden", "Без панели"],
+  ["split", "Два аккаунта рядом"]
+];
+
 function buildMenuTemplate({
   accounts = [],
   activeAccountId,
+  layout = "sidebar",
   settings = {},
   isDevToolsEnabled = false,
   actions = {}
@@ -137,6 +146,21 @@ function buildMenuTemplate({
         { label: "Назад", accelerator: "CommandOrControl+[", click: actions.onGoBack },
         { label: "Вперёд", accelerator: "CommandOrControl+]", click: actions.onGoForward },
         { type: "separator" },
+        {
+          label: "Раскладка",
+          submenu: layoutItems.map(([value, label]) => ({
+            label,
+            type: "radio",
+            checked: value === layout,
+            click: () => actions.onSetLayout?.(value)
+          }))
+        },
+        {
+          label: layout === "hidden" ? "Показать панель" : "Скрыть панель",
+          accelerator: "CommandOrControl+\\",
+          click: () => actions.onTogglePanel?.()
+        },
+        { type: "separator" },
         ...buildZoomItems(actions.onZoom),
         { type: "separator" },
         { role: "togglefullscreen", label: "Полноэкранный режим" },
@@ -163,5 +187,6 @@ module.exports = {
   applyApplicationMenu,
   buildAccountItems,
   buildMenuTemplate,
+  layoutItems,
   maxAccountShortcuts
 };

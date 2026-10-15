@@ -46,6 +46,12 @@ const { applyApplicationMenu } = require("./appMenu.cjs");
 const { attachContextMenu } = require("./contextMenu.cjs");
 const { nextZoomFactor } = require("./zoom.cjs");
 const {
+  normalizeLayout,
+  toggleHiddenLayout,
+  viewRects,
+  windowButtonPosition
+} = require("./layout.cjs");
+const {
   isBadgeDataUrl,
   shouldFlashTaskbar,
   taskbarBadgeText
@@ -87,10 +93,6 @@ process.on("unhandledRejection", (reason) => {
   console.error("Необработанный отказ промиса:", reason);
 });
 
-// Ширина боковой панели оболочки. Должна совпадать с renderer.css: вкладка
-// мессенджера занимает всё, что справа от панели, во всю высоту окна.
-const regularSidebarWidth = 280;
-const compactSidebarWidth = 76;
 // Восемь тяжёлых веб-приложений, стартующих одновременно, забивали сеть и процессор
 // настолько, что часть из них не успевала подняться. Разносим запуск во времени.
 const accountLoadStaggerMs = 1500;
@@ -103,6 +105,12 @@ const maxReloadsAfterCrash = 3;
 let windowRef;
 let webAccounts = [];
 let activeAccountId;
+// Раскладка «два аккаунта рядом»: правая половина и та, где сейчас работают.
+// В неё попадает выбранный аккаунт, Cmd+R, масштаб и клик по уведомлению.
+let secondaryAccountId;
+let focusedPane = 0;
+// Страницы, которые сейчас вставлены в окно.
+const attachedViewIds = new Set();
 let appSettings = {};
 const views = new Map();
 const unreadCounts = new Map();
@@ -154,6 +162,8 @@ function createWindow() {
     webAccounts.find((account) => account.id === appSettings.startAccountId)?.id ||
     webAccounts.find((account) => account.id === appSettings.lastAccountId)?.id ||
     webAccounts[0]?.id;
+  secondaryAccountId = appSettings.splitAccountId || undefined;
+  ensureSecondaryAccount();
 
   const windowBounds = normalizeWindowBounds(appSettings.windowBounds, (rect) =>
     screen.getDisplayMatching(rect)
@@ -167,7 +177,10 @@ function createWindow() {
     // На macOS заголовок окна убран: кнопки окна встают в боковую панель,
     // и мессенджеру достаётся вся высота.
     ...(process.platform === "darwin"
-      ? { titleBarStyle: "hiddenInset", trafficLightPosition: { x: 20, y: 20 } }
+      ? {
+          titleBarStyle: "hiddenInset",
+          trafficLightPosition: windowButtonPosition(currentLayout())
+        }
       : {}),
     icon: path.join(__dirname, "assets/icon.png"),
     webPreferences: {
@@ -289,6 +302,8 @@ function createAccountView(account, { load = true } = {}) {
   });
 
   view.webContents.setUserAgent(desktopChromeUserAgent());
+  // Клик внутрь страницы делает её половину активной.
+  view.webContents.on("focus", () => focusPaneOfAccount(account.id));
   attachContextMenu(view.webContents, () => windowRef);
   view.webContents.on("did-navigate", () => sendNavigationState());
   view.webContents.on("did-navigate-in-page", () => sendNavigationState());
@@ -405,43 +420,155 @@ function startStaggeredLoad() {
 }
 
 function selectAccount(accountId = activeAccountId) {
-  const win = windowRef;
-  const nextView = views.get(accountId);
-
-  if (!win || !nextView) {
+  if (!windowRef || !views.get(accountId)) {
     return;
   }
 
-  const currentView = views.get(activeAccountId);
-  if (currentView && currentView !== nextView) {
-    win.contentView.removeChildView(currentView);
+  // В правую половину, если работают в ней. Аккаунт, который уже открыт
+  // в другой половине, меняется с ней местами, а не открывается дважды.
+  if (currentLayout() === "split" && focusedPane === 1 && secondaryAccountId) {
+    if (accountId === activeAccountId) {
+      activeAccountId = secondaryAccountId;
+    }
+    secondaryAccountId = accountId;
+  } else {
+    if (accountId === secondaryAccountId) {
+      secondaryAccountId = activeAccountId;
+    }
+    activeAccountId = accountId;
   }
 
-  activeAccountId = accountId;
-  appSettings = updateSettings({ lastAccountId: accountId });
+  ensureSecondaryAccount();
+  appSettings = updateSettings({
+    lastAccountId: activeAccountId,
+    splitAccountId: secondaryAccountId || ""
+  });
 
   // Аккаунт, до которого ещё не дошла очередь ступенчатого запуска,
   // поднимаем немедленно — пользователь его как раз открыл.
-  if (accountStatuses.get(accountId) === "idle") {
-    const account = webAccounts.find((item) => item.id === accountId);
-    if (account) {
-      loadAccountView(account);
+  for (const id of visibleAccountIds()) {
+    if (accountStatuses.get(id) === "idle") {
+      const account = webAccounts.find((item) => item.id === id);
+      if (account) {
+        loadAccountView(account);
+      }
     }
   }
 
-  win.contentView.addChildView(nextView);
   layoutActiveView();
   createApplicationMenu();
-  sendToRenderer("accounts:changed", { activeAccountId });
+  sendToRenderer("accounts:changed", { activeAccountId, secondaryAccountId, focusedPane });
+  broadcastAccountState();
   sendNavigationState();
+}
+
+function currentLayout() {
+  return normalizeLayout(appSettings);
+}
+
+// Правая половина должна показывать другой аккаунт, чем левая. Если прежний
+// удалили или его нет, берётся первый подходящий.
+function ensureSecondaryAccount() {
+  if (currentLayout() !== "split") {
+    return;
+  }
+
+  const isValid =
+    secondaryAccountId !== activeAccountId &&
+    webAccounts.some((account) => account.id === secondaryAccountId);
+
+  if (!isValid) {
+    secondaryAccountId = webAccounts.find((account) => account.id !== activeAccountId)?.id;
+  }
+
+  if (!secondaryAccountId) {
+    focusedPane = 0;
+  }
+}
+
+function visibleAccountIds() {
+  const ids = [activeAccountId];
+  if (currentLayout() === "split" && secondaryAccountId) {
+    ids.push(secondaryAccountId);
+  }
+  return ids.filter(Boolean);
+}
+
+function focusedAccountId() {
+  return currentLayout() === "split" && focusedPane === 1 && secondaryAccountId
+    ? secondaryAccountId
+    : activeAccountId;
+}
+
+function focusPaneOfAccount(accountId) {
+  if (currentLayout() !== "split") {
+    return;
+  }
+
+  const pane = accountId === secondaryAccountId ? 1 : accountId === activeAccountId ? 0 : focusedPane;
+  if (pane !== focusedPane) {
+    focusedPane = pane;
+    createApplicationMenu();
+    broadcastAccountState();
+  }
+}
+
+// Раскладка поменялась: кнопки окна macOS переезжают, страницы раскладываются заново.
+function applyLayout() {
+  ensureSecondaryAccount();
+
+  if (windowRef && process.platform === "darwin" && windowRef.setWindowButtonPosition) {
+    windowRef.setWindowButtonPosition(windowButtonPosition(currentLayout()));
+  }
+
+  for (const id of visibleAccountIds()) {
+    if (accountStatuses.get(id) === "idle") {
+      const account = webAccounts.find((item) => item.id === id);
+      if (account) {
+        loadAccountView(account);
+      }
+    }
+  }
+
+  layoutActiveView();
 }
 
 function layoutActiveView() {
   const win = windowRef;
-  const view = views.get(activeAccountId);
 
-  if (!win || !view) {
+  if (!win) {
     return;
+  }
+
+  ensureSecondaryAccount();
+  const ids = visibleAccountIds();
+
+  for (const id of [...attachedViewIds]) {
+    if (!ids.includes(id)) {
+      const view = views.get(id);
+      if (view && !view.webContents.isDestroyed()) {
+        win.contentView.removeChildView(view);
+      }
+      attachedViewIds.delete(id);
+    }
+  }
+
+  const { width, height } = win.getContentBounds();
+  const rects = viewRects(currentLayout(), { width, height });
+  ids.forEach((id, index) => layoutView(id, index === 0 ? rects.primary : rects.secondary));
+}
+
+function layoutView(accountId, bounds) {
+  const win = windowRef;
+  const view = views.get(accountId);
+
+  if (!win || !view || view.webContents.isDestroyed() || !bounds) {
+    return;
+  }
+
+  if (!attachedViewIds.has(accountId)) {
+    win.contentView.addChildView(view);
+    attachedViewIds.add(accountId);
   }
 
   // Пока открыт диалог или включена блокировка, вкладка просто прячется.
@@ -452,32 +579,19 @@ function layoutActiveView() {
   //
   // Без связи вкладка тоже прячется: вместо страницы ошибки Chromium, которую
   // легко принять за выход из аккаунта, оболочка показывает свой экран.
-  if (isInterfaceLocked || isOverlayOpen || accountStatuses.get(activeAccountId) === "offline") {
+  if (isInterfaceLocked || isOverlayOpen || accountStatuses.get(accountId) === "offline") {
     view.setVisible(false);
     return;
   }
 
   view.setVisible(true);
-
-  const bounds = win.getContentBounds();
-  const sidebarWidth = getSidebarWidth();
-
-  view.setBounds({
-    x: sidebarWidth,
-    y: 0,
-    width: Math.max(320, bounds.width - sidebarWidth),
-    height: Math.max(240, bounds.height)
-  });
+  view.setBounds(bounds);
 }
 
 function scheduleLayoutActiveView() {
   layoutActiveView();
   setTimeout(layoutActiveView, 80);
   setTimeout(layoutActiveView, 260);
-}
-
-function getSidebarWidth() {
-  return appSettings.compactMode ? compactSidebarWidth : regularSidebarWidth;
 }
 
 // Тема «как в системе», светлая или тёмная. nativeTheme меняет и
@@ -521,6 +635,11 @@ function persistWindowState(patch = {}) {
 
 function activeView() {
   return views.get(activeAccountId);
+}
+
+// Половина, в которой сейчас работают: для обновления, масштаба и навигации.
+function focusedView() {
+  return views.get(focusedAccountId());
 }
 
 function sendNavigationState() {
@@ -674,6 +793,7 @@ async function removeAccountById(id, options = {}) {
     view.webContents.close();
     views.delete(id);
   }
+  attachedViewIds.delete(id);
 
   if (options.clearSession && account?.partition) {
     await clearAccountSession(account.partition);
@@ -690,6 +810,8 @@ async function removeAccountById(id, options = {}) {
   forgetAccount(id);
   webAccounts = removeAccount(id);
   activeAccountId = activeAccountId === id ? webAccounts[0]?.id : activeAccountId;
+  secondaryAccountId = secondaryAccountId === id ? undefined : secondaryAccountId;
+  ensureSecondaryAccount();
   webAccounts.forEach(createAccountView);
   createApplicationMenu();
 
@@ -725,9 +847,9 @@ ipcMain.handle("settings:update", (_event, patch) => {
   appSettings = updateSettings(safePatch);
   applyLoginItemSettings();
   applyTheme();
+  applyLayout();
   createApplicationMenu();
   registerGlobalShortcut();
-  layoutActiveView();
   broadcastAccountState();
   return {
     settings: appSettings,
@@ -813,14 +935,63 @@ ipcMain.handle("settings:show-file", () => {
   return { ok: true };
 });
 
-ipcMain.handle("view:reload", () => {
-  reloadActiveAccount();
+// Экран «Нет связи» в одной из двух половин обновляет именно свой аккаунт.
+ipcMain.handle("view:reload", (_event, accountId) => {
+  reloadActiveAccount(views.has(accountId) ? accountId : undefined);
+  return { ok: true };
+});
+
+function setLayout(patch) {
+  appSettings = updateSettings(patch);
+  applyLayout();
+  createApplicationMenu();
+  broadcastAccountState();
+}
+
+function togglePanel() {
+  setLayout(toggleHiddenLayout(appSettings));
+}
+
+ipcMain.handle("layout:toggle-panel", () => {
+  togglePanel();
+  return { ok: true };
+});
+
+// Шапка половины: щелчок делает её активной.
+ipcMain.handle("layout:focus-pane", (_event, pane) => {
+  if (currentLayout() === "split" && (pane === 0 || pane === 1)) {
+    focusedPane = pane === 1 && !secondaryAccountId ? 0 : pane;
+    views.get(focusedAccountId())?.webContents.focus();
+    createApplicationMenu();
+    broadcastAccountState();
+  }
+  return { ok: true };
+});
+
+ipcMain.handle("layout:swap", () => {
+  if (currentLayout() === "split" && secondaryAccountId) {
+    [activeAccountId, secondaryAccountId] = [secondaryAccountId, activeAccountId];
+    appSettings = updateSettings({ lastAccountId: activeAccountId, splitAccountId: secondaryAccountId });
+    layoutActiveView();
+    createApplicationMenu();
+    broadcastAccountState();
+  }
+  return { ok: true };
+});
+
+// Закрыть правую половину — вернуться к одному аккаунту в узкой полосе.
+ipcMain.handle("layout:close-split", () => {
+  if (focusedPane === 1 && secondaryAccountId) {
+    activeAccountId = secondaryAccountId;
+  }
+  focusedPane = 0;
+  setLayout({ layout: "rail", lastAccountId: activeAccountId });
   return { ok: true };
 });
 
 // Общая для кнопки в окне и Cmd+R в меню.
-function reloadActiveAccount() {
-  const account = webAccounts.find((item) => item.id === activeAccountId);
+function reloadActiveAccount(accountId = focusedAccountId()) {
+  const account = webAccounts.find((item) => item.id === accountId);
 
   // На странице ошибки reload() повторил бы саму ошибку, поэтому упавший
   // аккаунт грузим с его адреса заново и сбрасываем счётчик попыток.
@@ -831,13 +1002,13 @@ function reloadActiveAccount() {
     return;
   }
 
-  activeView()?.webContents.reload();
+  views.get(accountId)?.webContents.reload();
 }
 
 // Масштаб меняется у открытого аккаунта и запоминается в нём же.
 function zoomActiveAccount(direction) {
-  const account = webAccounts.find((item) => item.id === activeAccountId);
-  const view = activeView();
+  const account = webAccounts.find((item) => item.id === focusedAccountId());
+  const view = focusedView();
 
   if (!account || !view || view.webContents.isDestroyed()) {
     return;
@@ -875,14 +1046,14 @@ ipcMain.handle("view:forward", () => {
 // Кнопок «Назад» и «Вперёд» в окне больше нет — мессенджеру они почти не нужны.
 // Остались пункты меню с Cmd+[ и Cmd+].
 function goBackInActiveView() {
-  const view = activeView();
+  const view = focusedView();
   if (view?.webContents.navigationHistory.canGoBack()) {
     view.webContents.navigationHistory.goBack();
   }
 }
 
 function goForwardInActiveView() {
-  const view = activeView();
+  const view = focusedView();
   if (view?.webContents.navigationHistory.canGoForward()) {
     view.webContents.navigationHistory.goForward();
   }
@@ -895,7 +1066,7 @@ ipcMain.handle("updates:check", async () => {
 
 ipcMain.handle("view:devtools", () => {
   if (isDevToolsEnabled) {
-    activeView()?.webContents.openDevTools({ mode: "detach" });
+    focusedView()?.webContents.openDevTools({ mode: "detach" });
   }
   return { ok: true };
 });
@@ -990,6 +1161,9 @@ function accountStatePayload(extra = {}) {
   return {
     accounts: webAccounts,
     activeAccountId,
+    secondaryAccountId: currentLayout() === "split" ? secondaryAccountId : undefined,
+    focusedPane,
+    layout: currentLayout(),
     unreadCounts: Object.fromEntries(unreadCounts),
     accountStatuses: Object.fromEntries(accountStatuses),
     accountRetries: accountRetryInfo(),
@@ -1078,7 +1252,7 @@ function setAccountStatus(accountId, status) {
 
   // Открытый аккаунт потерял связь или вернулся — вкладку надо спрятать
   // или показать снова.
-  if (accountId === activeAccountId) {
+  if (visibleAccountIds().includes(accountId)) {
     layoutActiveView();
   }
 
@@ -1374,7 +1548,8 @@ function registerGlobalShortcut() {
 function createApplicationMenu() {
   applyApplicationMenu({
     accounts: webAccounts,
-    activeAccountId,
+    activeAccountId: focusedAccountId(),
+    layout: currentLayout(),
     settings: appSettings,
     isDevToolsEnabled,
     actions: {
@@ -1394,7 +1569,10 @@ function createApplicationMenu() {
         broadcastAccountState();
       },
       onSelectAccount: selectAccount,
-      onReloadView: reloadActiveAccount,
+      // Пункт меню передаёт первым аргументом сам себя — не путать с аккаунтом.
+      onReloadView: () => reloadActiveAccount(),
+      onSetLayout: (layout) => setLayout({ layout }),
+      onTogglePanel: togglePanel,
       onGoBack: goBackInActiveView,
       onGoForward: goForwardInActiveView,
       onZoom: zoomActiveAccount,

@@ -41,8 +41,9 @@
   --unread-muted: #646a75;
   --shadow: 0 24px 60px rgba(10, 12, 16, 0.28);
 
+  /* Совпадают с layout.cjs — там считается место под страницы мессенджеров. */
   --sidebar-width: 280px;
-  --sidebar-compact-width: 76px;
+  --sidebar-compact-width: 64px;
 
   font-family:
     -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable", "Segoe UI",
@@ -331,6 +332,12 @@ kbd {
 
 .account.queued .tile {
   opacity: 0.5;
+}
+
+.account.secondary .tile {
+  box-shadow:
+    0 0 0 2px var(--ground),
+    0 0 0 4px var(--accent);
 }
 
 .account.dragging {
@@ -638,11 +645,108 @@ kbd {
   position: relative;
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  background: var(--content);
+}
+
+.pane {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pane[data-pane="1"],
+.paneDivider,
+.paneHeader {
+  display: none;
+}
+
+.paneBody {
+  flex: 1;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 48px;
-  background: var(--content);
+}
+
+/* Два аккаунта рядом: у каждой половины шапка, активная подчёркнута. */
+[data-layout="split"] .content {
+  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
+}
+
+[data-layout="split"] .pane[data-pane="1"] {
+  display: flex;
+}
+
+[data-layout="split"] .paneDivider {
+  display: block;
+  background: var(--line);
+}
+
+[data-layout="split"] .paneHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  height: 36px;
+  padding: 0 6px 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--ground);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: default;
+}
+
+[data-layout="split"] .paneBody {
+  padding: 24px;
+}
+
+.paneHeader.focused {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.paneHeader .tile {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+}
+
+.paneHeader .tile svg {
+  width: 12px;
+  height: 12px;
+}
+
+.paneHeader .badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 11px;
+}
+
+.paneHeader .paneName {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.paneHeader .push {
+  flex: 1;
+}
+
+.paneHeader .iconButton {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+}
+
+.paneHeader .iconButton svg {
+  width: 16px;
+  height: 16px;
 }
 
 .stateScreen {
@@ -1309,4 +1413,379 @@ select:focus {
   color: var(--muted);
   font-size: 12px;
   line-height: 18px;
+}
+
+/* ───────────── Раскладки ───────────── */
+
+.tabBar,
+.strip {
+  display: none;
+}
+
+[data-layout="tabs"] body,
+[data-layout="hidden"] body {
+  flex-direction: column;
+}
+
+[data-layout="tabs"] .sidebar,
+[data-layout="hidden"] .sidebar,
+[data-layout="split"] #collapseButton {
+  display: none;
+}
+
+.windowButtonsSpace {
+  flex: none;
+  width: 8px;
+}
+
+/* Вкладки сверху */
+
+[data-layout="tabs"] .tabBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 44px;
+  padding: 0 8px 0 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--ground);
+  user-select: none;
+}
+
+.platform-darwin .tabBar .windowButtonsSpace {
+  width: 84px;
+}
+
+.tabList {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 44px;
+  max-width: 220px;
+  height: 32px;
+  padding: 0 10px 0 6px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  -webkit-app-region: no-drag;
+}
+
+.tab:hover {
+  background: var(--hover);
+}
+
+.tab.active {
+  border-color: var(--line);
+  background: var(--active-bg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.tab.queued .tile {
+  opacity: 0.5;
+}
+
+.tab.dragging {
+  opacity: 0.45;
+}
+
+.tab .tile {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+}
+
+.tab .tile svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tab .statusDot {
+  right: -3px;
+  bottom: -3px;
+  width: 10px;
+  height: 10px;
+}
+
+.tabName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab .badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 11px;
+}
+
+.tab.dropBefore::before,
+.tab.dropAfter::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.tab.dropBefore::before {
+  left: -4px;
+}
+
+.tab.dropAfter::after {
+  right: -4px;
+}
+
+.barActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.barSearch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.barSearch:hover {
+  background: var(--hover);
+}
+
+.barSearch svg {
+  width: 16px;
+  height: 16px;
+}
+
+.iconButton.small {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.iconButton.small svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Без панели */
+
+[data-layout="hidden"] .strip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  flex: none;
+  height: 28px;
+  padding-right: 6px;
+  border-bottom: 1px solid var(--line);
+  background: var(--ground);
+  font-size: 12px;
+  user-select: none;
+}
+
+.platform-darwin .strip .windowButtonsSpace {
+  width: 72px;
+}
+
+.stripCurrent {
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stripCurrent .tile {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+}
+
+.stripCurrent .tile svg {
+  width: 11px;
+  height: 11px;
+}
+
+.stripCurrent .muted,
+.stripUnread {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.stripCurrent .warn {
+  color: var(--warn);
+  font-weight: 400;
+}
+
+.stripActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stripUnread {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stripUnread .badge {
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  font-size: 10px;
+}
+
+.stripButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  -webkit-app-region: no-drag;
+}
+
+.stripButton:hover {
+  border-color: var(--input-line);
+}
+
+.stripButton svg {
+  width: 14px;
+  height: 14px;
+}
+
+.stripButton kbd {
+  padding: 0 4px;
+  font-size: 10px;
+}
+
+/* Выбор раскладки в настройках */
+
+.layoutPicker {
+  margin: 0;
+  padding: 14px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.layoutPicker legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+}
+
+.layoutCards {
+  clear: both;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 12px;
+}
+
+.layoutCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 6px 10px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+
+.layoutCard input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.layoutCard:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--sel-bg);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.layoutCard:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Мини-схема: i — оболочка, b — мессенджер. */
+.layoutPreview {
+  display: flex;
+  gap: 2px;
+  width: 76px;
+  height: 48px;
+  padding: 2px;
+  border: 1px solid var(--input-line);
+  border-radius: 7px;
+  background: var(--surface);
+}
+
+.layoutPreview i {
+  flex: none;
+  border-radius: 3px;
+  background: var(--input-line);
+}
+
+.layoutPreview b {
+  flex: 1;
+  border-radius: 3px;
+  background: var(--sel-bg);
+}
+
+.layoutPreview.preview-sidebar i {
+  width: 22px;
+}
+
+.layoutPreview.preview-rail i,
+.layoutPreview.preview-split i {
+  width: 7px;
+}
+
+.layoutPreview.preview-tabs,
+.layoutPreview.preview-hidden {
+  flex-direction: column;
+}
+
+.layoutPreview.preview-tabs i {
+  height: 8px;
+}
+
+.layoutPreview.preview-hidden i {
+  height: 3px;
 }
