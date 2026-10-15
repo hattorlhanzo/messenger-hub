@@ -11,17 +11,34 @@ const { contextBridge, ipcRenderer, webFrame } = require("electron");
 // собственный объект, и из изолированного мира его не достать. Поэтому шим
 // живёт здесь строкой и ставится через webFrame, а наружу торчит только
 // одна функция отправки.
+//
+// Клик по системному уведомлению возвращается обратно в страницу: у каждого
+// уведомления есть номер, и по нему вызывается onclick, который повесил сам
+// мессенджер. Так открывается нужный чат, а не просто вкладка аккаунта.
 
 const bridgeName = "__messengerHubBridge";
+const clickHandlerName = "__messengerHubNotificationClick";
 
 contextBridge.exposeInMainWorld(bridgeName, {
   notify(payload) {
     ipcRenderer.send("account:notification", {
       title: String(payload?.title ?? ""),
       body: String(payload?.body ?? ""),
-      tag: String(payload?.tag ?? "")
+      tag: String(payload?.tag ?? ""),
+      id: Number.isSafeInteger(payload?.id) ? payload.id : 0
     });
   }
+});
+
+ipcRenderer.on("account:notification-click", (_event, id) => {
+  // В строку кода попадает только целое число — ничего другого сюда не пускаем.
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    return;
+  }
+
+  webFrame
+    .executeJavaScript(`window.${clickHandlerName} && window.${clickHandlerName}(${id})`)
+    .catch(() => {});
 });
 
 const notificationShim = `
@@ -32,12 +49,21 @@ const notificationShim = `
     const bridge = window.${bridgeName};
     const OriginalNotification = window.Notification;
 
+    // Номера начинаются с отметки времени: после перезагрузки страницы клик
+    // по старому уведомлению не попадёт в новое с тем же порядковым номером.
+    let nextId = Date.now() * 1000;
+    const shown = new Map();
+    const maxRemembered = 50;
+
     function HubNotification(title, options = {}) {
+      const id = ++nextId;
+
       try {
         bridge.notify({
           title: String(title || ""),
           body: String(options.body || ""),
-          tag: String(options.tag || "")
+          tag: String(options.tag || ""),
+          id
         });
       } catch (_) {}
 
@@ -55,6 +81,7 @@ const notificationShim = `
         onerror: null,
         onshow: null,
         close() {
+          shown.delete(id);
           if (typeof notification.onclose === "function") {
             notification.onclose({ target: notification });
           }
@@ -70,8 +97,40 @@ const notificationShim = `
         }
       }, 0);
 
+      shown.set(id, notification);
+      if (shown.size > maxRemembered) {
+        shown.delete(shown.keys().next().value);
+      }
+
       return notification;
     }
+
+    window.${clickHandlerName} = (id) => {
+      const notification = shown.get(id);
+      if (!notification) return false;
+
+      const event = {
+        type: "click",
+        target: notification,
+        currentTarget: notification,
+        defaultPrevented: false,
+        preventDefault() {
+          this.defaultPrevented = true;
+        }
+      };
+
+      try {
+        if (typeof notification.onclick === "function") {
+          notification.onclick.call(notification, event);
+        }
+      } catch (_) {}
+
+      try {
+        notification.dispatchEvent(new Event("click"));
+      } catch (_) {}
+
+      return true;
+    };
 
     Object.defineProperty(HubNotification, "permission", {
       get() {

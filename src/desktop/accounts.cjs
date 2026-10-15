@@ -2,6 +2,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const { readJsonWithFallback, writeJsonAtomically } = require("./jsonStore.cjs");
+const { normalizeZoomFactor } = require("./zoom.cjs");
 
 const projectRoot = path.resolve(__dirname, "../..");
 const fallbackDataDir = path.join(projectRoot, "data");
@@ -25,8 +26,8 @@ function createAccount(input) {
     phone: input.phone || "",
     notificationsEnabled: input.notificationsEnabled !== false,
     url: input.url || platformUrl(platform),
-    userAgent: resolveUserAgent(input.userAgent),
-    partition: input.partition || `persist:${id}`
+    partition: input.partition || `persist:${id}`,
+    zoomFactor: normalizeZoomFactor(input.zoomFactor)
   };
 }
 
@@ -38,21 +39,20 @@ const platformTokens = {
   linux: "X11; Linux x86_64"
 };
 
-function desktopChromeUserAgent() {
+// Запасная версия на случай запуска вне Electron — в проверках.
+const fallbackChromeMajor = "150";
+
+// User-Agent собирается при каждом запуске из версии движка и у аккаунта
+// не хранится. Раньше строка с номером Chrome записывалась в файл аккаунтов
+// при создании и больше не менялась: движок обновлялся вместе с Electron, а
+// сайтам по-прежнему называлась старая версия. Расхождение строки с тем, что
+// движок сообщает о себе в заголовках Sec-CH-UA, сайты Meta замечают.
+// Формат «Chrome/150.0.0.0» — тот же, что отдаёт настоящий Chrome: младшие
+// части номера он давно не раскрывает.
+function desktopChromeUserAgent(chromeVersion = process.versions.chrome) {
   const token = platformTokens[process.platform] || platformTokens.darwin;
-  return `Mozilla/5.0 (${token}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36`;
-}
-
-// Аккаунт мог быть создан на другой системе: файл настроек переносят вместе
-// с профилем. Чужую строку заменяем на подходящую текущей системе.
-function resolveUserAgent(stored) {
-  const token = platformTokens[process.platform] || platformTokens.darwin;
-
-  if (typeof stored === "string" && stored.includes(token)) {
-    return stored;
-  }
-
-  return desktopChromeUserAgent();
+  const major = String(chromeVersion || "").split(".")[0] || fallbackChromeMajor;
+  return `Mozilla/5.0 (${token}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${major}.0.0.0 Safari/537.36`;
 }
 
 function defaultLabel(platform) {
@@ -180,7 +180,6 @@ function getAccountsPath() {
 module.exports = {
   addAccount,
   desktopChromeUserAgent,
-  resolveUserAgent,
   getAccountsPath,
   loadAccounts,
   removeAccount,

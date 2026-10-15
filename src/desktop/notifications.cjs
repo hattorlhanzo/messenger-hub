@@ -18,6 +18,12 @@ const previewMemoryMs = 15000;
 const recentPreviewKeys = new Map();
 const recentPreviewAt = new Map();
 
+// На macOS уведомление, которое сборщик мусора успел забрать, теряет обработчик
+// клика: баннер в Центре уведомлений остаётся, а нажатие на него ничего не делает.
+// Держим ссылки на последние уведомления, пока они могут понадобиться.
+const liveNotifications = new Set();
+const maxLiveNotifications = 100;
+
 let openAccount = () => {};
 
 function initNotifications({ onOpenAccount } = {}) {
@@ -54,10 +60,19 @@ function canNotify(account, settings) {
   );
 }
 
-function show({ title, subtitle, body, accountId }) {
+function show({ title, subtitle, body, accountId, clickId }) {
   const notification = new Notification({ title, subtitle, body });
-  notification.on("click", () => openAccount(accountId));
+  notification.on("click", () => {
+    liveNotifications.delete(notification);
+    openAccount(accountId, clickId);
+  });
+  notification.on("close", () => liveNotifications.delete(notification));
   notification.show();
+
+  liveNotifications.add(notification);
+  if (liveNotifications.size > maxLiveNotifications) {
+    liveNotifications.delete(liveNotifications.values().next().value);
+  }
 }
 
 // Уведомление по счётчику непрочитанных: сколько сообщений прибавилось.
@@ -75,6 +90,7 @@ function showAccountNotification(account, delta, settings = {}) {
 }
 
 // Уведомление с текстом сообщения, пришедшее от самой страницы мессенджера.
+// clickId — номер уведомления в странице: по нему клик откроет нужный чат.
 function showMessagePreviewNotification(account, preview, settings = {}) {
   if (!canNotify(account, settings) || !settings.messagePreviewsEnabled) {
     return;
@@ -93,7 +109,8 @@ function showMessagePreviewNotification(account, preview, settings = {}) {
     title: accountNotificationTitle(account),
     subtitle: title,
     body,
-    accountId: account.id
+    accountId: account.id,
+    clickId: preview.clickId
   });
 }
 

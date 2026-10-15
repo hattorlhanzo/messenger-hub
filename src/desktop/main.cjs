@@ -7,6 +7,7 @@ const {
   globalShortcut,
   ipcMain,
   Menu,
+  nativeImage,
   net,
   powerMonitor,
   screen,
@@ -14,6 +15,7 @@ const {
 } = require("electron");
 const {
   addAccount,
+  desktopChromeUserAgent,
   loadAccounts,
   removeAccount,
   reorderAccounts,
@@ -26,7 +28,13 @@ const { chooseGlobalShortcut, defaultGlobalShortcut } = require("./shortcuts.cjs
 const { canOpenExternally, isAllowedInsideView } = require("./navigation.cjs");
 const { getLogFilePath, initLogger, logFromRenderer } = require("./logger.cjs");
 const { extractUnreadCount, shouldNotifyAboutUnread } = require("./unread.cjs");
-const { createPinSalt, hashPin, normalizePin, verifyPin } = require("./security.cjs");
+const {
+  createPinGuard,
+  createPinSalt,
+  hashPin,
+  normalizePin,
+  shouldLockForIdle
+} = require("./security.cjs");
 const { normalizeWindowBounds } = require("./windowBounds.cjs");
 const {
   clearAccountSession,
@@ -34,6 +42,13 @@ const {
   flushSessions
 } = require("./sessions.cjs");
 const { applyApplicationMenu } = require("./appMenu.cjs");
+const { attachContextMenu } = require("./contextMenu.cjs");
+const { nextZoomFactor } = require("./zoom.cjs");
+const {
+  isBadgeDataUrl,
+  shouldFlashTaskbar,
+  taskbarBadgeText
+} = require("./taskbarBadge.cjs");
 const {
   forgetAccount,
   hadRecentPreview,
@@ -80,6 +95,7 @@ const compactToolbarHeight = 44;
 const accountLoadStaggerMs = 1500;
 const storageFlushIntervalMs = 3 * 60 * 1000;
 const onlineCheckIntervalMs = 5000;
+const idleLockCheckIntervalMs = 15000;
 const retryDelaysMs = [2000, 5000, 10000, 30000, 60000, 120000];
 const maxReloadsAfterCrash = 3;
 
@@ -107,7 +123,9 @@ const isDevToolsEnabled = process.env.MESSENGER_HUB_DEVTOOLS === "1";
 let storageFlushTimer;
 let startupUpdateCheckTimer;
 let onlineWatchTimer;
+let idleLockTimer;
 let wasOnline = true;
+const pinGuard = createPinGuard();
 let isFlushingBeforeQuit = false;
 let isQuitting = false;
 let isOverlayOpen = false;
@@ -149,6 +167,8 @@ function createWindow() {
   windowRef = win;
   win.setMaxListeners(40);
   win.loadFile(path.join(__dirname, "renderer.html"));
+  // Поля настроек и формы аккаунта тоже получают меню «Вырезать / Вставить».
+  attachContextMenu(win.webContents, () => windowRef);
 
   webAccounts.forEach((account) => createAccountView(account, { load: false }));
   startStaggeredLoad();
@@ -196,6 +216,7 @@ function createWindow() {
   win.on("closed", () => {
     windowRef = undefined;
   });
+  win.on("focus", () => win.flashFrame(false));
 
   createApplicationMenu();
   registerGlobalShortcut();
@@ -253,7 +274,8 @@ function createAccountView(account, { load = true } = {}) {
     }
   });
 
-  view.webContents.setUserAgent(account.userAgent);
+  view.webContents.setUserAgent(desktopChromeUserAgent());
+  attachContextMenu(view.webContents, () => windowRef);
   view.webContents.on("did-navigate", () => sendNavigationState());
   view.webContents.on("did-navigate-in-page", () => sendNavigationState());
   view.webContents.on("page-title-updated", () => updateAccountTitleState(account));
@@ -266,6 +288,7 @@ function createAccountView(account, { load = true } = {}) {
     }
 
     requestPersistentStorage(view, account);
+    applyAccountZoom(view, account.id);
     markAccountReady(account);
     updateAccountTitleState(account);
   });
@@ -488,18 +511,9 @@ function sendNavigationState() {
   });
 }
 
-ipcMain.handle("accounts:list", () => ({
-  accounts: webAccounts,
-  activeAccountId,
-  unreadCounts: Object.fromEntries(unreadCounts),
-  accountStatuses: Object.fromEntries(accountStatuses),
-  updateStatus: getUpdateStatus(),
-  isDevToolsEnabled,
-  settings: appSettings,
-  settingsPath: getSettingsPath(),
-  appVersion: app.getVersion(),
-  globalShortcut: globalShortcutStatus
-}));
+// Тот же набор, что и в рассылке: странице с самого начала нужны платформа
+// и счётчик для значка в панели задач.
+ipcMain.handle("accounts:list", () => accountStatePayload());
 
 ipcMain.handle("accounts:add", (_event, input) => {
   const account = addAccount(input);
@@ -667,7 +681,10 @@ ipcMain.handle("accounts:reorder", (_event, ids) => {
 });
 
 ipcMain.handle("settings:update", (_event, patch) => {
-  appSettings = updateSettings(patch);
+  // PIN меняется только через свои обработчики, где спрашивается текущий PIN.
+  // Общий путь настроек не должен позволять выключить блокировку в обход.
+  const { pinEnabled, pinHash, pinSalt, ...safePatch } = patch || {};
+  appSettings = updateSettings(safePatch);
   applyLoginItemSettings();
   createApplicationMenu();
   registerGlobalShortcut();
@@ -681,8 +698,29 @@ ipcMain.handle("settings:update", (_event, patch) => {
   };
 });
 
-ipcMain.handle("security:set-pin", (_event, pin) => {
-  const normalizedPin = normalizePin(pin);
+// Сменить или выключить уже заданный PIN можно, только назвав текущий:
+// иначе любой, кто подошёл к открытому окну, снимал бы блокировку в настройках.
+function checkCurrentPin(currentPin) {
+  if (!appSettings.pinEnabled) {
+    return { ok: true, retryAfterMs: 0 };
+  }
+
+  return pinGuard.check(currentPin, appSettings);
+}
+
+ipcMain.handle("security:set-pin", (_event, pin, currentPin) => {
+  let normalizedPin;
+  try {
+    normalizedPin = normalizePin(pin);
+  } catch {
+    return { ok: false, reason: "invalid", settings: appSettings };
+  }
+
+  const current = checkCurrentPin(currentPin);
+  if (!current.ok) {
+    return { ok: false, reason: "wrong-pin", ...current, settings: appSettings };
+  }
+
   const salt = createPinSalt();
   appSettings = updateSettings({
     pinEnabled: true,
@@ -690,10 +728,15 @@ ipcMain.handle("security:set-pin", (_event, pin) => {
     pinHash: hashPin(normalizedPin, salt)
   });
   broadcastAccountState();
-  return { settings: appSettings };
+  return { ok: true, settings: appSettings };
 });
 
-ipcMain.handle("security:disable-pin", () => {
+ipcMain.handle("security:disable-pin", (_event, currentPin) => {
+  const current = checkCurrentPin(currentPin);
+  if (!current.ok) {
+    return { ok: false, reason: "wrong-pin", ...current, settings: appSettings };
+  }
+
   appSettings = updateSettings({
     pinEnabled: false,
     pinSalt: "",
@@ -702,16 +745,16 @@ ipcMain.handle("security:disable-pin", () => {
   isInterfaceLocked = false;
   layoutActiveView();
   broadcastAccountState();
-  return { settings: appSettings };
+  return { ok: true, settings: appSettings };
 });
 
 ipcMain.handle("security:verify-pin", (_event, pin) => {
-  const ok = verifyPin(pin, appSettings);
-  if (ok) {
+  const result = pinGuard.check(pin, appSettings);
+  if (result.ok) {
     isInterfaceLocked = false;
     layoutActiveView();
   }
-  return { ok, settings: appSettings };
+  return { ...result, settings: appSettings };
 });
 
 ipcMain.handle("logs:show", () => {
@@ -732,6 +775,12 @@ ipcMain.handle("settings:show-file", () => {
 });
 
 ipcMain.handle("view:reload", () => {
+  reloadActiveAccount();
+  return { ok: true };
+});
+
+// Общая для кнопки в окне и Cmd+R в меню.
+function reloadActiveAccount() {
   const account = webAccounts.find((item) => item.id === activeAccountId);
 
   // На странице ошибки reload() повторил бы саму ошибку, поэтому упавший
@@ -740,12 +789,39 @@ ipcMain.handle("view:reload", () => {
     retryAttempts.delete(account.id);
     clearAccountRetry(account.id);
     loadAccountView(account);
-    return { ok: true };
+    return;
   }
 
   activeView()?.webContents.reload();
-  return { ok: true };
-});
+}
+
+// Масштаб меняется у открытого аккаунта и запоминается в нём же.
+function zoomActiveAccount(direction) {
+  const account = webAccounts.find((item) => item.id === activeAccountId);
+  const view = activeView();
+
+  if (!account || !view || view.webContents.isDestroyed()) {
+    return;
+  }
+
+  const zoomFactor = nextZoomFactor(account.zoomFactor, direction);
+  view.webContents.setZoomFactor(zoomFactor);
+
+  if (zoomFactor !== account.zoomFactor) {
+    updateAccount(account.id, { zoomFactor });
+    webAccounts = loadAccounts();
+  }
+}
+
+// Chromium сбрасывает масштаб при переходе на другой сайт, поэтому
+// сохранённое значение возвращается после каждой загрузки страницы.
+function applyAccountZoom(view, accountId) {
+  const account = webAccounts.find((item) => item.id === accountId);
+
+  if (account && !view.webContents.isDestroyed()) {
+    view.webContents.setZoomFactor(account.zoomFactor);
+  }
+}
 
 ipcMain.handle("view:back", () => {
   const view = activeView();
@@ -777,7 +853,13 @@ ipcMain.handle("view:overlay", (_event, open) => {
 });
 
 ipcMain.handle("view:locked", (_event, locked) => {
-  isInterfaceLocked = Boolean(locked);
+  // Заблокироваться окно может само, а снять блокировку — только верный PIN
+  // в security:verify-pin. Иначе разблокировка не зависела бы от PIN вовсе.
+  if (locked) {
+    isInterfaceLocked = true;
+  } else if (!appSettings.pinEnabled) {
+    isInterfaceLocked = false;
+  }
   layoutActiveView();
   return { ok: true };
 });
@@ -806,6 +888,21 @@ function updateAccountTitleState(account) {
     })
   ) {
     showAccountNotification(currentAccount, next - previous, appSettings);
+  }
+
+  if (
+    windowRef &&
+    shouldFlashTaskbar({
+      platform: process.platform,
+      hasBaseline,
+      previous,
+      next,
+      isWindowFocused: windowRef.isFocused(),
+      notificationsAllowed:
+        appSettings.notificationsEnabled && currentAccount.notificationsEnabled !== false
+    })
+  ) {
+    windowRef.flashFrame(true);
   }
 
   broadcastAccountState();
@@ -848,12 +945,44 @@ function accountStatePayload(extra = {}) {
     appVersion: app.getVersion(),
     globalShortcut: globalShortcutStatus,
     platform: process.platform,
+    taskbarBadge: process.platform === "win32" ? taskbarBadgeText(totalUnreadCount()) : "",
     ...extra
   };
 }
 
+function totalUnreadCount() {
+  return [...unreadCounts.values()].reduce((sum, count) => sum + count, 0);
+}
+
+// Страница оболочки нарисовала счётчик — ставим его поверх значка в панели задач.
+// Картинка, опоздавшая к уже изменившемуся счётчику, отбрасывается.
+ipcMain.on("badge:overlay", (_event, dataUrl, text) => {
+  if (process.platform !== "win32" || !windowRef || windowRef.isDestroyed()) {
+    return;
+  }
+
+  const current = taskbarBadgeText(totalUnreadCount());
+  if (text !== current) {
+    return;
+  }
+
+  if (!current) {
+    windowRef.setOverlayIcon(null, "");
+    return;
+  }
+
+  if (!isBadgeDataUrl(dataUrl)) {
+    return;
+  }
+
+  const image = nativeImage.createFromDataURL(dataUrl);
+  if (!image.isEmpty()) {
+    windowRef.setOverlayIcon(image, `Непрочитанных: ${current}`);
+  }
+});
+
 function updateDockBadge() {
-  const total = [...unreadCounts.values()].reduce((sum, count) => sum + count, 0);
+  const total = totalUnreadCount();
   app.setBadgeCount(total);
   refreshTray(total);
 }
@@ -975,6 +1104,25 @@ function startOnlineWatch() {
   }, onlineCheckIntervalMs);
 }
 
+// Автоблокировка по бездействию. Время берётся у системы: так набор текста
+// в мессенджере считается работой, а входящие сообщения не сбрасывают отсчёт.
+function startIdleLockWatch() {
+  clearInterval(idleLockTimer);
+  idleLockTimer = setInterval(() => {
+    if (
+      shouldLockForIdle({
+        pinEnabled: appSettings.pinEnabled,
+        isLocked: isInterfaceLocked,
+        idleSeconds: powerMonitor.getSystemIdleTime(),
+        lockAfterMinutes: appSettings.lockAfterMinutes
+      })
+    ) {
+      console.info("Locking after system idle");
+      requestRendererLock();
+    }
+  }, idleLockCheckIntervalMs);
+}
+
 // Chromium держит свежие куки и localStorage в памяти. Instagram регулярно
 // перевыпускает sessionid, и выход до записи на диск означал вход заново.
 function startStorageFlushTimer() {
@@ -1024,10 +1172,27 @@ ipcMain.on("account:notification", (event, payload) => {
 
   showMessagePreviewNotification(
     account,
-    { title: String(payload?.title || ""), body: String(payload?.body || "") },
+    {
+      title: String(payload?.title || ""),
+      body: String(payload?.body || ""),
+      clickId: Number.isSafeInteger(payload?.id) ? payload.id : 0
+    },
     appSettings
   );
 });
+
+// Клик по уведомлению с текстом передаётся странице мессенджера, и она сама
+// открывает чат, из которого пришло сообщение.
+function forwardNotificationClick(accountId, clickId) {
+  const view = views.get(accountId);
+
+  if (!Number.isSafeInteger(clickId) || clickId <= 0 || !view || view.webContents.isDestroyed()) {
+    return;
+  }
+
+  view.webContents.focus();
+  view.webContents.send("account:notification-click", clickId);
+}
 
 function accountForWebContents(sender) {
   for (const [accountId, view] of views) {
@@ -1141,6 +1306,8 @@ function createApplicationMenu() {
         broadcastAccountState();
       },
       onSelectAccount: selectAccount,
+      onReloadView: reloadActiveAccount,
+      onZoom: zoomActiveAccount,
       onQuit: quitApp
     }
   });
@@ -1183,13 +1350,14 @@ if (!app.requestSingleInstanceLock()) {
       },
       onQuit: quitApp
     });
-    refreshTray([...unreadCounts.values()].reduce((sum, count) => sum + count, 0));
+    refreshTray(totalUnreadCount());
 
     // Клик по уведомлению открывает окно на нужном аккаунте.
     initNotifications({
-      onOpenAccount: (accountId) => {
+      onOpenAccount: (accountId, clickId) => {
         showMainWindow();
         selectAccount(accountId);
+        forwardNotificationClick(accountId, clickId);
       }
     });
 
@@ -1203,6 +1371,11 @@ if (!app.requestSingleInstanceLock()) {
     // После пробуждения Mac сокеты мертвы, а страницы об этом ещё не знают.
     powerMonitor.on("resume", () => retryOfflineAccounts("system resumed"));
     powerMonitor.on("unlock-screen", () => retryOfflineAccounts("screen unlocked"));
+
+    // Человек заблокировал компьютер или закрыл крышку — значит, отошёл.
+    powerMonitor.on("lock-screen", requestRendererLock);
+    powerMonitor.on("suspend", requestRendererLock);
+    startIdleLockWatch();
   });
 
   app.on("before-quit", (event) => {
@@ -1210,6 +1383,7 @@ if (!app.requestSingleInstanceLock()) {
     globalShortcut.unregisterAll();
     clearInterval(storageFlushTimer);
     clearInterval(onlineWatchTimer);
+    clearInterval(idleLockTimer);
     clearTimeout(startupUpdateCheckTimer);
     pendingLoadTimers.forEach(clearTimeout);
     pendingLoadTimers.clear();

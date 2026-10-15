@@ -122,7 +122,29 @@
               </div>
               <label class="checkboxLabel">
                 <input id="pinEnabledInput" name="pinEnabled" type="checkbox" />
-                Включить PIN при запуске и скрытии окна
+                Включить PIN-блокировку
+              </label>
+              <label>
+                Блокировать при бездействии
+                <select id="lockAfterInput" name="lockAfterMinutes">
+                  <option value="1">через 1 минуту</option>
+                  <option value="5">через 5 минут</option>
+                  <option value="15">через 15 минут</option>
+                  <option value="30">через 30 минут</option>
+                  <option value="0">не блокировать</option>
+                </select>
+              </label>
+              <label id="currentPinField" hidden>
+                Текущий PIN
+                <input
+                  id="currentPinInput"
+                  name="currentPin"
+                  autocomplete="current-password"
+                  inputmode="numeric"
+                  maxlength="12"
+                  placeholder="нужен, чтобы сменить или выключить"
+                  type="password"
+                />
               </label>
               <label>
                 Новый PIN
@@ -136,6 +158,8 @@
                 />
               </label>
               <p class="settingsPath">
+                Окно блокируется при запуске, при скрытии, при блокировке экрана
+                компьютера и после бездействия.
                 PIN закрывает переписку от чужих глаз, пока вы отошли от компьютера.
                 Это не шифрование: файлы сессий на диске остаются доступны тому,
                 у кого есть доступ к вашей учётной записи в системе.

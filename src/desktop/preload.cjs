@@ -19,9 +19,10 @@ contextBridge.exposeInMainWorld("messengerShell", {
   openDevTools: () => ipcRenderer.invoke("view:devtools"),
   setOverlayOpen: (open) => ipcRenderer.invoke("view:overlay", open),
   setLocked: (locked) => ipcRenderer.invoke("view:locked", locked),
-  setPin: (pin) => ipcRenderer.invoke("security:set-pin", pin),
-  disablePin: () => ipcRenderer.invoke("security:disable-pin"),
+  setPin: (pin, currentPin) => ipcRenderer.invoke("security:set-pin", pin, currentPin),
+  disablePin: (currentPin) => ipcRenderer.invoke("security:disable-pin", currentPin),
   verifyPin: (pin) => ipcRenderer.invoke("security:verify-pin", pin),
+  setTaskbarBadge: (dataUrl, text) => ipcRenderer.send("badge:overlay", dataUrl, text),
   onAccountChanged: (callback) => {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on("accounts:changed", listener);

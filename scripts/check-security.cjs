@@ -4,7 +4,16 @@
 // Запуск: node scripts/check-security.cjs
 
 const assert = require("node:assert");
-const { createPinSalt, hashPin, normalizePin, verifyPin } = require("../src/desktop/security.cjs");
+const {
+  createPinGuard,
+  createPinSalt,
+  hashPin,
+  normalizeLockAfterMinutes,
+  normalizePin,
+  pinRetryDelayMs,
+  shouldLockForIdle,
+  verifyPin
+} = require("../src/desktop/security.cjs");
 const { normalizeWindowBounds } = require("../src/desktop/windowBounds.cjs");
 
 const checks = [];
@@ -68,6 +77,55 @@ check("PIN короче четырёх цифр не принимается", ()
 // Экран 1920x1080 с полосой меню сверху.
 const display = { workArea: { x: 0, y: 25, width: 1920, height: 1055 } };
 const findDisplay = () => display;
+
+check("время бездействия: неизвестное значение превращается в пять минут", () => {
+  assert.strictEqual(normalizeLockAfterMinutes(undefined), 5);
+  assert.strictEqual(normalizeLockAfterMinutes(null), 5);
+  assert.strictEqual(normalizeLockAfterMinutes(7), 5);
+  assert.strictEqual(normalizeLockAfterMinutes("15"), 15);
+  assert.strictEqual(normalizeLockAfterMinutes(0), 0);
+});
+
+check("блокировка по бездействию срабатывает только после заданного времени", () => {
+  const base = { pinEnabled: true, isLocked: false, lockAfterMinutes: 5 };
+  assert.strictEqual(shouldLockForIdle({ ...base, idleSeconds: 299 }), false);
+  assert.strictEqual(shouldLockForIdle({ ...base, idleSeconds: 300 }), true);
+});
+
+check("без PIN, при уже закрытом окне и при «не блокировать» блокировки нет", () => {
+  const idle = { idleSeconds: 3600, lockAfterMinutes: 5 };
+  assert.strictEqual(shouldLockForIdle({ ...idle, pinEnabled: false, isLocked: false }), false);
+  assert.strictEqual(shouldLockForIdle({ ...idle, pinEnabled: true, isLocked: true }), false);
+  assert.strictEqual(
+    shouldLockForIdle({ ...idle, pinEnabled: true, isLocked: false, lockAfterMinutes: 0 }),
+    false
+  );
+});
+
+check("первые четыре ошибки без паузы, дальше пауза растёт до 15 минут", () => {
+  assert.deepStrictEqual([1, 2, 3, 4].map(pinRetryDelayMs), [0, 0, 0, 0]);
+  assert.strictEqual(pinRetryDelayMs(5), 30 * 1000);
+  assert.strictEqual(pinRetryDelayMs(6), 60 * 1000);
+  assert.strictEqual(pinRetryDelayMs(50), 15 * 60 * 1000);
+});
+
+check("во время паузы не принимается даже верный PIN", () => {
+  let time = 0;
+  const guard = createPinGuard({ now: () => time });
+  for (let i = 0; i < 5; i += 1) guard.check("0000", settings);
+  const blocked = guard.check("4321", settings);
+  assert.strictEqual(blocked.ok, false);
+  assert.ok(blocked.retryAfterMs > 0);
+  time += 30 * 1000;
+  assert.strictEqual(guard.check("4321", settings).ok, true);
+});
+
+check("верный PIN обнуляет счётчик ошибок", () => {
+  const guard = createPinGuard({ now: () => 0 });
+  for (let i = 0; i < 4; i += 1) guard.check("0000", settings);
+  guard.check("4321", settings);
+  assert.strictEqual(guard.check("0000", settings).retryAfterMs, 0, "снова четыре бесплатные попытки");
+});
 
 check("сохранённые размеры применяются как есть", () => {
   const b = normalizeWindowBounds({ x: 100, y: 100, width: 1200, height: 800 }, findDisplay);

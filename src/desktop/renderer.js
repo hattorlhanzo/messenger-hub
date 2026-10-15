@@ -31,6 +31,9 @@ const globalShortcutInput = document.getElementById("globalShortcutInput");
 const globalShortcutStatus = document.getElementById("globalShortcutStatus");
 const pinEnabledInput = document.getElementById("pinEnabledInput");
 const pinInput = document.getElementById("pinInput");
+const lockAfterInput = document.getElementById("lockAfterInput");
+const currentPinField = document.getElementById("currentPinField");
+const currentPinInput = document.getElementById("currentPinInput");
 const pinStatus = document.getElementById("pinStatus");
 const settingsPath = document.getElementById("settingsPath");
 const appVersionText = document.getElementById("appVersionText");
@@ -69,8 +72,8 @@ let draggedAccountId;
 let didDragAccount = false;
 let commandMatches = [];
 let commandSelectedIndex = 0;
-let lockTimer;
 let isLocked = false;
+let drawnTaskbarBadge = "";
 
 // Главному процессу достаточно знать, открыто ли что-то поверх страницы: он
 // прячет вкладку аккаунта целиком. Раньше сюда отдавалась высота диалога в
@@ -492,7 +495,7 @@ async function init() {
   applySettingsMode();
   renderAccounts();
   maybeOpenOnboarding();
-  setupIdleLock();
+  syncTaskbarBadge(state.taskbarBadge);
   if (settings.pinEnabled) {
     showLock();
   }
@@ -518,7 +521,7 @@ window.messengerShell.onAccountListChanged((state) => {
   applySettingsMode();
   renderAccounts();
   updateStatusText.textContent = currentUpdateStatus.message || "";
-  setupIdleLock();
+  syncTaskbarBadge(state.taskbarBadge);
 });
 
 window.messengerShell.onNavigationChanged((state) => {
@@ -743,6 +746,15 @@ settingsForm.addEventListener("submit", async (event) => {
     return;
   }
 
+  const currentPin = currentPinInput.value.trim();
+  const isChangingPin = settings.pinEnabled && (pinValue || !pinEnabledInput.checked);
+
+  if (isChangingPin && !currentPin) {
+    window.alert("Введите текущий PIN, чтобы сменить или выключить блокировку.");
+    currentPinInput.focus();
+    return;
+  }
+
   const state = await window.messengerShell.updateSettings({
     operatorName: operatorNameInput.value.trim(),
     startAccountId: startAccountInput.value,
@@ -752,22 +764,34 @@ settingsForm.addEventListener("submit", async (event) => {
     keepInBackground: backgroundInput.checked,
     compactMode: compactModeInput.checked,
     globalShortcutEnabled: globalShortcutInput.checked,
-    lockAfterMinutes: Number(settings.lockAfterMinutes) || 5
+    lockAfterMinutes: Number(lockAfterInput.value)
   });
   settings = state.settings;
   currentSettingsPath = state.settingsPath || currentSettingsPath;
   currentGlobalShortcut = state.globalShortcut || currentGlobalShortcut;
 
+  let pinState;
   if (pinValue) {
-    const pinState = await window.messengerShell.setPin(pinValue);
-    settings = pinState.settings || settings;
+    pinState = await window.messengerShell.setPin(pinValue, currentPin);
   } else if (!pinEnabledInput.checked && settings.pinEnabled) {
-    const pinState = await window.messengerShell.disablePin();
+    pinState = await window.messengerShell.disablePin(currentPin);
+  }
+
+  if (pinState) {
     settings = pinState.settings || settings;
+
+    // Остальные настройки уже сохранены, а с PIN не вышло — окно не закрываем,
+    // чтобы было видно, что именно не применилось.
+    if (!pinState.ok) {
+      currentPinInput.value = "";
+      window.alert(pinErrorText(pinState));
+      currentPinInput.focus();
+      return;
+    }
   }
 
   pinInput.value = "";
-  setupIdleLock();
+  currentPinInput.value = "";
   applySettingsMode();
   closeSettings();
 });
@@ -777,6 +801,7 @@ lockForm.addEventListener("submit", async (event) => {
   const result = await window.messengerShell.verifyPin(lockPinInput.value);
 
   if (!result.ok) {
+    lockError.textContent = pinErrorText(result);
     lockError.hidden = false;
     lockPinInput.select();
     return;
@@ -784,18 +809,6 @@ lockForm.addEventListener("submit", async (event) => {
 
   settings = result.settings || settings;
   hideLock();
-});
-
-["mousemove", "mousedown", "keydown", "touchstart", "wheel"].forEach((eventName) => {
-  document.addEventListener(
-    eventName,
-    () => {
-      if (!isLocked) {
-        resetIdleLockTimer();
-      }
-    },
-    { passive: true }
-  );
 });
 
 onboardingForm.addEventListener("submit", async (event) => {
@@ -878,6 +891,9 @@ function renderSettingsForm() {
   compactModeInput.checked = Boolean(settings.compactMode);
   globalShortcutInput.checked = settings.globalShortcutEnabled !== false;
   pinEnabledInput.checked = Boolean(settings.pinEnabled);
+  lockAfterInput.value = String(lockAfterMinutesValue(settings.lockAfterMinutes));
+  currentPinField.hidden = !settings.pinEnabled;
+  currentPinInput.value = "";
   pinInput.value = "";
   pinStatus.textContent = settings.pinEnabled ? "Включена" : "Выключена";
   renderGlobalShortcutStatus();
@@ -920,22 +936,62 @@ function applySettingsMode() {
   document.body.classList.toggle("compactMode", Boolean(settings.compactMode));
 }
 
-function setupIdleLock() {
-  clearTimeout(lockTimer);
-  if (!settings.pinEnabled || isLocked) {
+// Счётчик непрочитанных на значке в панели задач Windows. Что писать, решает
+// главный процесс; здесь только рисунок — в главном процессе нет canvas.
+function syncTaskbarBadge(text = "") {
+  if (currentPlatform !== "win32" || text === drawnTaskbarBadge) {
     return;
   }
-  resetIdleLockTimer();
+
+  drawnTaskbarBadge = text;
+  window.messengerShell.setTaskbarBadge(text ? drawTaskbarBadge(text) : "", text);
 }
 
-function resetIdleLockTimer() {
-  clearTimeout(lockTimer);
-  if (!settings.pinEnabled || isLocked) {
-    return;
+// Значок поверх иконки в панели задач — 16×16 точек. Рисуем вдвое крупнее,
+// чтобы на экранах с масштабом 150–200% цифры не расплывались.
+function drawTaskbarBadge(text) {
+  const size = 32;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#e5484d";
+  context.beginPath();
+  context.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  context.fill();
+
+  const fontSize = text.length >= 3 ? 13 : text.length === 2 ? 18 : 22;
+  context.fillStyle = "#ffffff";
+  context.font = `700 ${fontSize}px "Segoe UI", system-ui, sans-serif`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(text, size / 2, size / 2 + 1);
+
+  return canvas.toDataURL("image/png");
+}
+
+// Отсчёт бездействия ведёт главный процесс по времени бездействия системы,
+// а сюда приходит только команда заблокироваться.
+function lockAfterMinutesValue(value) {
+  const minutes = Number(value);
+  return value !== undefined && value !== null && [0, 1, 5, 15, 30].includes(minutes)
+    ? minutes
+    : 5;
+}
+
+function pinErrorText(result = {}) {
+  if (result.reason === "invalid") {
+    return "PIN должен состоять из 4-12 цифр.";
   }
 
-  const minutes = Math.max(1, Number(settings.lockAfterMinutes) || 5);
-  lockTimer = setTimeout(showLock, minutes * 60 * 1000);
+  if (result.retryAfterMs > 0) {
+    const seconds = Math.ceil(result.retryAfterMs / 1000);
+    const wait = seconds < 120 ? `${seconds} сек.` : `${Math.ceil(seconds / 60)} мин.`;
+    return `Слишком много неверных попыток. Попробуйте снова через ${wait}`;
+  }
+
+  return "Неверный PIN";
 }
 
 function showLock() {
@@ -944,7 +1000,6 @@ function showLock() {
   }
 
   isLocked = true;
-  clearTimeout(lockTimer);
   closeCommandPalette();
   closeModal();
   closeSettings();
@@ -963,7 +1018,6 @@ function hideLock() {
   lockPinInput.value = "";
   lockError.hidden = true;
   void window.messengerShell.setLocked(false);
-  resetIdleLockTimer();
 }
 
 function renderGlobalShortcutStatus() {

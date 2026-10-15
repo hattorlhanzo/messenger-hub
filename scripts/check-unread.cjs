@@ -7,7 +7,7 @@
 
 const assert = require("node:assert");
 const { extractUnreadCount, shouldNotifyAboutUnread } = require("../src/desktop/unread.cjs");
-const { desktopChromeUserAgent, resolveUserAgent } = require("../src/desktop/accounts.cjs");
+const { desktopChromeUserAgent } = require("../src/desktop/accounts.cjs");
 
 const checks = [];
 
@@ -81,28 +81,17 @@ check("User-Agent соответствует текущей системе", () 
   assert.ok(ua.includes("Chrome/"), "строка должна выглядеть как Chrome");
 });
 
-check("чужая строка от другой системы заменяется", () => {
-  const windowsUa =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
-  const macUa =
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
-  const foreign = process.platform === "win32" ? macUa : windowsUa;
-
-  assert.strictEqual(
-    resolveUserAgent(foreign),
-    desktopChromeUserAgent(),
-    "аккаунт, перенесённый с другой системы, должен получить свою строку"
-  );
+check("версия Chrome берётся из движка, а не зашита в коде", () => {
+  assert.ok(desktopChromeUserAgent("151.0.7900.12").includes("Chrome/151.0.0.0 "));
+  assert.ok(desktopChromeUserAgent("163.0.1.2").includes("Chrome/163.0.0.0 "));
 });
 
-check("своя строка сохраняется как есть", () => {
-  const own = desktopChromeUserAgent();
-  assert.strictEqual(resolveUserAgent(own), own);
+check("младшие части номера не раскрываются, как в настоящем Chrome", () => {
+  assert.ok(!desktopChromeUserAgent("150.0.7871.250").includes("7871"));
 });
 
-check("пустое значение подставляет строку по умолчанию", () => {
-  assert.strictEqual(resolveUserAgent(undefined), desktopChromeUserAgent());
-  assert.strictEqual(resolveUserAgent(""), desktopChromeUserAgent());
+check("без версии движка строка всё равно правильная", () => {
+  assert.match(desktopChromeUserAgent(""), /Chrome\/\d+\.0\.0\.0 Safari\/537\.36$/);
 });
 
 console.log(checks.join("\n"));

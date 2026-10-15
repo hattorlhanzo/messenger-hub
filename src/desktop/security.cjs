@@ -42,9 +42,79 @@ function verifyPin(pin, settings = {}) {
   return saved.length === current.length && crypto.timingSafeEqual(saved, current);
 }
 
+// Через сколько минут бездействия блокироваться. 0 — не блокироваться по
+// бездействию, только при запуске, скрытии окна и блокировке экрана.
+const lockAfterMinutesOptions = [0, 1, 5, 15, 30];
+const defaultLockAfterMinutes = 5;
+
+function normalizeLockAfterMinutes(value) {
+  if (value === null || value === undefined || value === "") {
+    return defaultLockAfterMinutes;
+  }
+
+  const minutes = Number(value);
+  return lockAfterMinutesOptions.includes(minutes) ? minutes : defaultLockAfterMinutes;
+}
+
+// Бездействие считается по всей системе, а не по окну оболочки. Раньше таймер
+// видел только мышь над полоской интерфейса: набор текста в мессенджере
+// бездействием не отличался от отсутствия человека, а каждое новое сообщение,
+// наоборот, сбрасывало отсчёт.
+function shouldLockForIdle({ pinEnabled, isLocked, idleSeconds, lockAfterMinutes } = {}) {
+  const minutes = normalizeLockAfterMinutes(lockAfterMinutes);
+  return Boolean(pinEnabled) && !isLocked && minutes > 0 && Number(idleSeconds) >= minutes * 60;
+}
+
+// Защита от подбора. Опечататься пару раз можно без последствий, дальше
+// каждая неудача удваивает паузу: 30 секунд, минута, две… но не больше 15 минут.
+const freePinAttempts = 4;
+const firstPinPauseMs = 30 * 1000;
+const maxPinPauseMs = 15 * 60 * 1000;
+
+function pinRetryDelayMs(failedAttempts) {
+  if (failedAttempts <= freePinAttempts) {
+    return 0;
+  }
+
+  return Math.min(firstPinPauseMs * 2 ** (failedAttempts - freePinAttempts - 1), maxPinPauseMs);
+}
+
+// Счётчик неудач общий для экрана блокировки и для смены или отключения PIN
+// в настройках: иначе подбирать можно было бы через второй вход.
+function createPinGuard({ now = Date.now } = {}) {
+  let failedAttempts = 0;
+  let blockedUntil = 0;
+
+  return {
+    check(pin, settings) {
+      const wait = blockedUntil - now();
+      if (wait > 0) {
+        return { ok: false, retryAfterMs: wait };
+      }
+
+      if (verifyPin(pin, settings)) {
+        failedAttempts = 0;
+        blockedUntil = 0;
+        return { ok: true, retryAfterMs: 0 };
+      }
+
+      failedAttempts += 1;
+      const delay = pinRetryDelayMs(failedAttempts);
+      blockedUntil = delay ? now() + delay : 0;
+      return { ok: false, retryAfterMs: delay };
+    }
+  };
+}
+
 module.exports = {
+  createPinGuard,
   createPinSalt,
+  defaultLockAfterMinutes,
   hashPin,
+  lockAfterMinutesOptions,
+  normalizeLockAfterMinutes,
   normalizePin,
+  pinRetryDelayMs,
+  shouldLockForIdle,
   verifyPin
 };
