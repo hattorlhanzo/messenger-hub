@@ -49,7 +49,11 @@ jobs:
           fi
           echo "Тег и версия совпадают: $TAG"
 
-      - name: Создать релиз, если его ещё нет
+      # Релиз создаётся черновиком и становится виден только в finalize, когда
+      # все файлы на месте. Раньше он сразу становился «последним»: десять минут
+      # сборки ссылки на скачивание вели в пустоту, а приложения, проверявшие
+      # обновления в это время, не находили latest.yml.
+      - name: Создать черновик релиза, если релиза ещё нет
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -61,11 +65,12 @@ jobs:
             gh release create "$TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --title "$TAG" \
-              --generate-notes
-            echo "Релиз $TAG создан"
+              --generate-notes \
+              --draft
+            echo "Черновик релиза $TAG создан"
           fi
 
-  # Сборки идут параллельно: релиз уже существует, создавать его им не придётся.
+  # Сборки идут параллельно: черновик уже существует, создавать его им не придётся.
   macos:
     name: macOS (arm64)
     needs: prepare
@@ -126,18 +131,20 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - name: Снять черновик и проверить содержимое
+      # Сначала проверить, что все файлы на месте, и только потом показать
+      # релиз: неполный релиз так и остаётся черновиком.
+      - name: Проверить содержимое и снять черновик
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
+          COUNT=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')
+          if [ "$COUNT" -lt 6 ]; then
+            echo "::error::В релизе всего $COUNT файлов — ожидалось не меньше шести. Релиз оставлен черновиком."
+            exit 1
+          fi
+
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
             --json isDraft,assets \
             --jq '"черновик: \(.isDraft) | файлов: \(.assets | length)"'
-
-          COUNT=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')
-          if [ "$COUNT" -lt 6 ]; then
-            echo "::error::В релизе всего $COUNT файлов — ожидалось не меньше шести."
-            exit 1
-          fi

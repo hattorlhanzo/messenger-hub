@@ -36,6 +36,22 @@ check("сайты мессенджеров открываются во вкла�
   }
 });
 
+check("VK и MAX проходят через свой вход", () => {
+  for (const url of [
+    "https://web.vk.me/",
+    "https://id.vk.ru/auth?app_id=8223270",
+    "https://login.vk.com/",
+    "https://web.max.ru/",
+    "https://api.oneme.ru/"
+  ]) {
+    assert.ok(isAllowedInsideView(url, whatsapp), `должен быть разрешён: ${url}`);
+  }
+
+  for (const url of ["https://vk.me.attacker.net/", "https://fakevk.ru/", "https://notmax.ru/"]) {
+    assert.ok(!isAllowedInsideView(url, whatsapp), `подделка прошла: ${url}`);
+  }
+});
+
 check("посторонний сайт во вкладку не пускается", () => {
   for (const url of ["https://example.com/", "http://phishing.test/login"]) {
     assert.ok(!isAllowedInsideView(url, whatsapp), `не должен быть разрешён: ${url}`);

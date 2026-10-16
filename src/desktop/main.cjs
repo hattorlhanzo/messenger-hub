@@ -45,6 +45,7 @@ const {
 const { applyApplicationMenu } = require("./appMenu.cjs");
 const { attachContextMenu } = require("./contextMenu.cjs");
 const { nextZoomFactor } = require("./zoom.cjs");
+const { recordCrash } = require("./crashes.cjs");
 const {
   normalizeLayout,
   toggleHiddenLayout,
@@ -100,7 +101,7 @@ const storageFlushIntervalMs = 3 * 60 * 1000;
 const onlineCheckIntervalMs = 5000;
 const idleLockCheckIntervalMs = 15000;
 const retryDelaysMs = [2000, 5000, 10000, 30000, 60000, 120000];
-const maxReloadsAfterCrash = 3;
+const updateCheckIntervalMs = 6 * 60 * 60 * 1000;
 
 let windowRef;
 let webAccounts = [];
@@ -130,15 +131,18 @@ const lastLoadErrors = new Map();
 // До этого уведомлять не о чем: первое значение — то, что накопилось,
 // пока приложение было закрыто.
 const seenUnreadBaseline = new Set();
-const reloadsAfterCrash = new Map();
+// Когда падала страница каждого аккаунта — см. crashes.cjs.
+const crashHistory = new Map();
 const pendingLoadTimers = new Set();
 const isDevToolsEnabled = process.env.MESSENGER_HUB_DEVTOOLS === "1";
 let storageFlushTimer;
 let startupUpdateCheckTimer;
+let updateCheckTimer;
 let onlineWatchTimer;
 let idleLockTimer;
 let wasOnline = true;
-const pinGuard = createPinGuard();
+// Создаётся заново в createWindow — с сохранённым счётчиком неудачных попыток.
+let pinGuard = createPinGuard();
 let isFlushingBeforeQuit = false;
 let isQuitting = false;
 let isOverlayOpen = false;
@@ -153,6 +157,16 @@ function createWindow() {
   process.env.MESSENGER_HUB_DATA_DIR = app.getPath("userData");
   webAccounts = loadAccounts();
   appSettings = loadSettings();
+  // С PIN окно стартует запертым. Раньше блокировка включалась только после
+  // того, как страница оболочки загрузится и попросит об этом, и мессенджер
+  // успевал показаться — а если оболочка не поднималась, оставался открытым.
+  isInterfaceLocked = Boolean(appSettings.pinEnabled);
+  pinGuard = createPinGuard({
+    state: { failedAttempts: appSettings.pinFailedAttempts, blockedUntil: appSettings.pinBlockedUntil },
+    onChange: ({ failedAttempts, blockedUntil }) => {
+      appSettings = updateSettings({ pinFailedAttempts: failedAttempts, pinBlockedUntil: blockedUntil });
+    }
+  });
   applyLoginItemSettings();
   applyTheme();
   // Стартовый аккаунт, если его выбрали явно, важнее последнего открытого.
@@ -187,12 +201,19 @@ function createWindow() {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true
     }
   });
 
   windowRef = win;
   win.setMaxListeners(40);
+  // Оболочка — только наша страница. Любая другая, попав в это окно, получила
+  // бы весь набор команд оболочки: настройки, аккаунты, проверку обновлений.
+  win.webContents.on("will-navigate", (event) => {
+    event.preventDefault();
+    console.info(`Shell navigation blocked: ${event.url}`);
+  });
+  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   win.loadFile(path.join(__dirname, "renderer.html"));
   // Поля настроек и формы аккаунта тоже получают меню «Вырезать / Вставить».
   attachContextMenu(win.webContents, () => windowRef);
@@ -288,18 +309,26 @@ function createAccountView(account, { load = true } = {}) {
   // Вкладка должна оставаться на сайте своего мессенджера. Уход на посторонний
   // сайт внутри оболочки приложения — удобная площадка для поддельной формы входа,
   // поэтому такие переходы отправляем в системный браузер.
-  view.webContents.on("will-navigate", (event, url) => {
-    if (isAllowedInsideView(url, account.url)) {
+  //
+  // Проверяется и переадресация с сервера: раньше смотрели только на первый
+  // адрес, и ссылка на разрешённый сайт, который перекидывает дальше, уводила
+  // вкладку куда угодно.
+  const keepOnMessengerSite = (event) => {
+    const accountUrl = webAccounts.find((item) => item.id === account.id)?.url || account.url;
+
+    if (!event.isMainFrame || isAllowedInsideView(event.url, accountUrl)) {
       return;
     }
 
     event.preventDefault();
-    console.info(`Navigation to ${url} moved out to the system browser`);
+    console.info(`Navigation to ${event.url} moved out to the system browser`);
 
-    if (canOpenExternally(url)) {
-      void shell.openExternal(url);
+    if (canOpenExternally(event.url)) {
+      void shell.openExternal(event.url);
     }
-  });
+  };
+  view.webContents.on("will-navigate", keepOnMessengerSite);
+  view.webContents.on("will-redirect", keepOnMessengerSite);
 
   view.webContents.setUserAgent(desktopChromeUserAgent());
   // Клик внутрь страницы делает её половину активной.
@@ -351,11 +380,11 @@ function createAccountView(account, { load = true } = {}) {
     // Упавшая вкладка раньше оставалась белым прямоугольником до перезапуска
     // приложения. Поднимаем её сами, но не бесконечно: если страница падает
     // раз за разом, циклическая перезагрузка сделает только хуже.
-    const attempts = (reloadsAfterCrash.get(account.id) || 0) + 1;
-    reloadsAfterCrash.set(account.id, attempts);
+    const crashes = recordCrash(crashHistory.get(account.id));
+    crashHistory.set(account.id, crashes.history);
 
-    if (attempts > maxReloadsAfterCrash) {
-      console.error(`Account ${account.id} keeps crashing, giving up after ${attempts} reloads`);
+    if (crashes.giveUp) {
+      console.error(`Account ${account.id} keeps crashing, ${crashes.history.length} crashes in a row`);
       setAccountStatus(account.id, "offline");
       return;
     }
@@ -424,17 +453,20 @@ function selectAccount(accountId = activeAccountId) {
     return;
   }
 
-  // В правую половину, если работают в ней. Аккаунт, который уже открыт
-  // в другой половине, меняется с ней местами, а не открывается дважды.
-  if (currentLayout() === "split" && focusedPane === 1 && secondaryAccountId) {
-    if (accountId === activeAccountId) {
-      activeAccountId = secondaryAccountId;
-    }
+  // Аккаунт, который уже виден в одной из половин, там и остаётся — активной
+  // становится его половина. Раньше он менялся местами с другой половиной,
+  // и клик по уведомлению из правой половины переставлял их. Поменять местами
+  // можно кнопкой в шапке половины. Новый аккаунт открывается в той половине,
+  // где работают.
+  const isSplit = currentLayout() === "split" && Boolean(secondaryAccountId);
+
+  if (isSplit && accountId === secondaryAccountId) {
+    focusedPane = 1;
+  } else if (isSplit && accountId === activeAccountId) {
+    focusedPane = 0;
+  } else if (isSplit && focusedPane === 1) {
     secondaryAccountId = accountId;
   } else {
-    if (accountId === secondaryAccountId) {
-      secondaryAccountId = activeAccountId;
-    }
     activeAccountId = accountId;
   }
 
@@ -661,6 +693,8 @@ function sendNavigationState() {
 // и счётчик для значка в панели задач.
 ipcMain.handle("accounts:list", () => accountStatePayload());
 
+// Со страницы приходят только мессенджер, название, телефон и уведомления —
+// остальное отбрасывает accounts.cjs (см. editableFields).
 ipcMain.handle("accounts:add", (_event, input) => {
   const account = addAccount(input);
   webAccounts = loadAccounts();
@@ -803,14 +837,27 @@ async function removeAccountById(id, options = {}) {
   unreadCounts.delete(id);
   accountStatuses.delete(id);
   retryAttempts.delete(id);
-  reloadsAfterCrash.delete(id);
+  crashHistory.delete(id);
   failedAccounts.delete(id);
   seenUnreadBaseline.delete(id);
   lastLoadErrors.delete(id);
   forgetAccount(id);
   webAccounts = removeAccount(id);
-  activeAccountId = activeAccountId === id ? webAccounts[0]?.id : activeAccountId;
-  secondaryAccountId = secondaryAccountId === id ? undefined : secondaryAccountId;
+
+  // Удалили левую половину — на её место переезжает правая, а правую
+  // заполнит ensureSecondaryAccount. Раньше слева вставал первый аккаунт
+  // списка, и им нередко оказывался тот, что был справа: менялись обе половины.
+  if (activeAccountId === id) {
+    if (currentLayout() === "split" && secondaryAccountId) {
+      activeAccountId = secondaryAccountId;
+      secondaryAccountId = undefined;
+    } else {
+      activeAccountId = webAccounts[0]?.id;
+    }
+    focusedPane = 0;
+  } else if (secondaryAccountId === id) {
+    secondaryAccountId = undefined;
+  }
   ensureSecondaryAccount();
   webAccounts.forEach(createAccountView);
   createApplicationMenu();
@@ -842,8 +889,18 @@ ipcMain.handle("accounts:reorder", (_event, ids) => {
 
 ipcMain.handle("settings:update", (_event, patch) => {
   // PIN меняется только через свои обработчики, где спрашивается текущий PIN.
-  // Общий путь настроек не должен позволять выключить блокировку в обход.
-  const { pinEnabled, pinHash, pinSalt, ...safePatch } = patch || {};
+  // Общий путь настроек не должен позволять выключить блокировку в обход
+  // или сбросить счётчик неудачных попыток. Адрес обновлений задаётся только
+  // в файле настроек: с ним можно подсунуть приложению чужой установщик.
+  const {
+    pinEnabled,
+    pinHash,
+    pinSalt,
+    pinFailedAttempts,
+    pinBlockedUntil,
+    updateFeedUrl,
+    ...safePatch
+  } = patch || {};
   appSettings = updateSettings(safePatch);
   applyLoginItemSettings();
   applyTheme();
@@ -914,6 +971,7 @@ ipcMain.handle("security:verify-pin", (_event, pin) => {
   if (result.ok) {
     isInterfaceLocked = false;
     layoutActiveView();
+    focusVisibleView();
   }
   return { ...result, settings: appSettings };
 });
@@ -961,7 +1019,7 @@ ipcMain.handle("layout:toggle-panel", () => {
 ipcMain.handle("layout:focus-pane", (_event, pane) => {
   if (currentLayout() === "split" && (pane === 0 || pane === 1)) {
     focusedPane = pane === 1 && !secondaryAccountId ? 0 : pane;
-    views.get(focusedAccountId())?.webContents.focus();
+    focusVisibleView();
     createApplicationMenu();
     broadcastAccountState();
   }
@@ -997,6 +1055,8 @@ function reloadActiveAccount(accountId = focusedAccountId()) {
   // аккаунт грузим с его адреса заново и сбрасываем счётчик попыток.
   if (account && accountStatuses.get(account.id) === "offline") {
     retryAttempts.delete(account.id);
+    // Человек сам нажал «Повторить» — счёт падений начинается заново.
+    crashHistory.delete(account.id);
     clearAccountRetry(account.id);
     loadAccountView(account);
     return;
@@ -1060,7 +1120,7 @@ function goForwardInActiveView() {
 }
 
 ipcMain.handle("updates:check", async () => {
-  await checkForUpdates({ feedUrl: appSettings.updateFeedUrl, silent: false });
+  await checkUpdates({ silent: false });
   return { updateStatus: getUpdateStatus() };
 });
 
@@ -1082,6 +1142,7 @@ ipcMain.handle("view:locked", (_event, locked) => {
   // в security:verify-pin. Иначе разблокировка не зависела бы от PIN вовсе.
   if (locked) {
     isInterfaceLocked = true;
+    windowRef?.webContents.focus();
   } else if (!appSettings.pinEnabled) {
     isInterfaceLocked = false;
   }
@@ -1265,7 +1326,6 @@ function markAccountReady(account) {
   }
 
   retryAttempts.delete(account.id);
-  reloadsAfterCrash.delete(account.id);
   lastLoadErrors.delete(account.id);
   clearAccountRetry(account.id);
   setAccountStatus(account.id, "ready");
@@ -1452,8 +1512,22 @@ function forwardNotificationClick(accountId, clickId) {
     return;
   }
 
-  view.webContents.focus();
+  // Пока окно заперто, чат открывается за экраном блокировки, но клавиатуру
+  // не получает — фокус вернётся к нему после верного PIN.
+  if (!isInterfaceLocked) {
+    view.webContents.focus();
+  }
   view.webContents.send("account:notification-click", clickId);
+}
+
+// Клавиатура — открытому мессенджеру, но только когда его видно. Спрятанная
+// страница с фокусом получала бы то, что набирают на экране блокировки.
+function focusVisibleView() {
+  const view = focusedView();
+
+  if (!isInterfaceLocked && view && !view.webContents.isDestroyed()) {
+    view.webContents.focus();
+  }
 }
 
 function accountForWebContents(sender) {
@@ -1557,7 +1631,7 @@ function createApplicationMenu() {
       onHideWindow: hideMainWindow,
       onQuickSwitch: () => sendToRenderer("command:open"),
       onCheckUpdates: () => {
-        void checkForUpdates({ feedUrl: appSettings.updateFeedUrl, silent: false });
+        void checkUpdates({ silent: false });
       },
       onToggleLaunchAtLogin: (checked) => {
         appSettings = updateSettings({ launchAtLogin: checked });
@@ -1581,6 +1655,17 @@ function createApplicationMenu() {
   });
 }
 
+function checkUpdates({ silent }) {
+  return checkForUpdates({
+    feedUrl: appSettings.updateFeedUrl,
+    silent,
+    skippedVersion: appSettings.updateNoticeSkippedVersion,
+    onSkipVersion: (version) => {
+      appSettings = updateSettings({ updateNoticeSkippedVersion: version });
+    }
+  });
+}
+
 function quitApp() {
   isQuitting = true;
   app.quit();
@@ -1593,6 +1678,8 @@ function requestRendererLock() {
 
   isInterfaceLocked = true;
   layoutActiveView();
+  // Фокус мог остаться в мессенджере, а его страница теперь спрятана.
+  windowRef.webContents.focus();
   sendToRenderer("security:lock");
 }
 
@@ -1633,8 +1720,12 @@ if (!app.requestSingleInstanceLock()) {
     // Не на самом старте: сначала пусть поднимутся мессенджеры, ради которых
     // приложение и запускали.
     startupUpdateCheckTimer = setTimeout(() => {
-      void checkForUpdates({ feedUrl: appSettings.updateFeedUrl, silent: true });
+      void checkUpdates({ silent: true });
     }, 20000);
+    // Приложение неделями живёт в фоне, и проверки только при запуске мало.
+    updateCheckTimer = setInterval(() => {
+      void checkUpdates({ silent: true });
+    }, updateCheckIntervalMs);
 
     // После пробуждения Mac сокеты мертвы, а страницы об этом ещё не знают.
     powerMonitor.on("resume", () => retryOfflineAccounts("system resumed"));
@@ -1655,6 +1746,7 @@ if (!app.requestSingleInstanceLock()) {
     clearInterval(onlineWatchTimer);
     clearInterval(idleLockTimer);
     clearTimeout(startupUpdateCheckTimer);
+    clearInterval(updateCheckTimer);
     pendingLoadTimers.forEach(clearTimeout);
     pendingLoadTimers.clear();
     retryTimers.forEach(clearTimeout);

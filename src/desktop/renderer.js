@@ -132,7 +132,11 @@ const platformIcons = {
   telegram:
     '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M20.5 4.5L3.5 11.2l5.6 2.1 2.1 6.2 3.1-3.9 4.3 3.1z"></path><path d="M9.1 13.3l11.4-8.8"></path></svg>',
   instagram:
-    '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4.5" y="4.5" width="15" height="15" rx="4.5"></rect><circle cx="12" cy="12" r="3.6"></circle><circle cx="16.6" cy="7.4" r="0.7" fill="currentColor"></circle></svg>'
+    '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4.5" y="4.5" width="15" height="15" rx="4.5"></rect><circle cx="12" cy="12" r="3.6"></circle><circle cx="16.6" cy="7.4" r="0.7" fill="currentColor"></circle></svg>',
+  vk:
+    '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8.5l2.75 7 2.75-7"></path><path d="M13.5 8.5v7"></path><path d="M19 8.5l-5.5 3.5 5.5 3.5"></path></svg>',
+  max:
+    '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5a7.5 7.5 0 1 0 4 13.85l3.5 1.15-1-3.4A7.5 7.5 0 0 0 12 4.5z"></path><path d="M8.5 14.5v-5l3.5 3.5 3.5-3.5v5"></path></svg>'
 };
 
 const swapIcon =
@@ -157,10 +161,18 @@ function el(tag, className, text) {
   return element;
 }
 
+// Тот же список, что в platforms.cjs: подключить его отсюда нельзя,
+// страница оболочки работает в песочнице.
+const platformNames = {
+  whatsapp: "WhatsApp",
+  telegram: "Telegram",
+  instagram: "Instagram",
+  vk: "VK",
+  max: "MAX"
+};
+
 function platformName(platform) {
-  if (platform === "whatsapp") return "WhatsApp";
-  if (platform === "telegram") return "Telegram";
-  return "Instagram";
+  return platformNames[platform] || platformNames.instagram;
 }
 
 function platformTile(platform, size = "") {
@@ -169,7 +181,13 @@ function platformTile(platform, size = "") {
   return tile;
 }
 
+// Instagram входит по логину, остальные — по номеру телефона.
 function hasPhone(platform) {
+  return platform !== "instagram" && Object.hasOwn(platformNames, platform);
+}
+
+// WhatsApp и Telegram в браузере входят только по QR-коду с телефона.
+function signsInWithQr(platform) {
   return platform === "whatsapp" || platform === "telegram";
 }
 
@@ -630,7 +648,7 @@ function paneScreens(account, index) {
           stateScreen({
             icon: plusIcon,
             title: "Аккаунтов пока нет",
-            text: "Добавьте WhatsApp, Telegram или Instagram — каждый аккаунт хранит свой вход отдельно.",
+            text: "Добавьте WhatsApp, Telegram, Instagram, VK или MAX — каждый аккаунт хранит свой вход отдельно.",
             actions: [textButton("Добавить аккаунт", true, openAddModal)]
           })
         ]
@@ -679,7 +697,7 @@ function offlineTitle(account) {
 
 function offlineText(account) {
   const retry = accountRetries[account.id] || {};
-  const relogin = account.platform === "instagram" ? "входить заново" : "сканировать QR-код заново";
+  const relogin = signsInWithQr(account.platform) ? "сканировать QR-код заново" : "входить заново";
 
   if (!retry.at) {
     return `Страница «${account.label}» несколько раз подряд закрылась с ошибкой. Нажмите «Повторить сейчас» — вход при этом сохранится.`;
@@ -853,15 +871,20 @@ function closeAddModal() {
   syncOverlay();
 }
 
+const signInHint = {
+  whatsapp: "отсканируйте QR-код телефоном",
+  telegram: "отсканируйте QR-код телефоном",
+  instagram: "введите логин и пароль",
+  vk: "войдите по номеру телефона или QR-коду из приложения VK",
+  max: "отсканируйте QR-код в приложении MAX или войдите по номеру телефона"
+};
+
 function updateAddForm() {
   const platform = selectedPlatform();
   const name = platformName(platform);
   phoneField.hidden = !hasPhone(platform);
   labelInput.placeholder = `Например, ${name} — поддержка`;
-  addNote.textContent =
-    platform === "instagram"
-      ? "Дальше откроется страница входа Instagram: введите логин и пароль. Это нужно один раз — потом вход сохраняется."
-      : `Дальше откроется страница входа ${name}: отсканируйте QR-код телефоном. Это нужно один раз — потом вход сохраняется.`;
+  addNote.textContent = `Дальше откроется страница входа ${name}: ${signInHint[platform]}. Это нужно один раз — потом вход сохраняется.`;
 }
 
 addForm.addEventListener("change", (event) => {

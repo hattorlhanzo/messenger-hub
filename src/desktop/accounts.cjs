@@ -3,17 +3,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { readJsonWithFallback, writeJsonAtomically } = require("./jsonStore.cjs");
 const { normalizeZoomFactor } = require("./zoom.cjs");
+const { isKnownPlatform, platformInfo } = require("./platforms.cjs");
 
 const projectRoot = path.resolve(__dirname, "../..");
 const fallbackDataDir = path.join(projectRoot, "data");
 
 const defaultAccounts = [];
-
-function platformUrl(platform) {
-  if (platform === "whatsapp") return "https://web.whatsapp.com/";
-  if (platform === "telegram") return "https://web.telegram.org/k/";
-  return "https://www.instagram.com/direct/inbox/";
-}
 
 function createAccount(input) {
   const platform = input.platform;
@@ -21,11 +16,11 @@ function createAccount(input) {
 
   return {
     id,
-    label: input.label || defaultLabel(platform),
+    label: input.label || platformInfo(platform).name,
     platform,
     phone: input.phone || "",
     notificationsEnabled: input.notificationsEnabled !== false,
-    url: input.url || platformUrl(platform),
+    url: input.url || platformInfo(platform).url,
     partition: input.partition || `persist:${id}`,
     zoomFactor: normalizeZoomFactor(input.zoomFactor)
   };
@@ -55,10 +50,28 @@ function desktopChromeUserAgent(chromeVersion = process.versions.chrome) {
   return `Mozilla/5.0 (${token}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${major}.0.0.0 Safari/537.36`;
 }
 
-function defaultLabel(platform) {
-  if (platform === "whatsapp") return "WhatsApp";
-  if (platform === "telegram") return "Telegram";
-  return "Instagram";
+// Что страница оболочки может прислать при добавлении и правке аккаунта.
+// Адрес и папку сессии она не задаёт: адрес из чужих рук уводит вкладку на
+// любой сайт, а папка чужого аккаунта отдала бы его вход — и «удалить
+// и очистить вход» потом стёрло бы его у обоих. Адрес по-прежнему можно
+// поменять вручную в файле аккаунтов.
+function editableFields(input = {}) {
+  const fields = {};
+
+  if (typeof input.label === "string") {
+    fields.label = input.label.trim().slice(0, 80);
+  }
+  if (typeof input.phone === "string") {
+    fields.phone = input.phone.trim().slice(0, 40);
+  }
+  if (typeof input.notificationsEnabled === "boolean") {
+    fields.notificationsEnabled = input.notificationsEnabled;
+  }
+  if (input.zoomFactor !== undefined) {
+    fields.zoomFactor = normalizeZoomFactor(input.zoomFactor);
+  }
+
+  return fields;
 }
 
 function sanitizeId(value) {
@@ -89,10 +102,15 @@ function saveAccounts(accounts) {
   writeJsonAtomically(accountsPath, accounts);
 }
 
-function addAccount(input) {
+function addAccount(input = {}) {
+  if (!isKnownPlatform(input.platform)) {
+    throw new Error(`Unknown platform: ${input.platform}`);
+  }
+
   const accounts = loadAccounts();
   const account = createAccount({
-    ...input,
+    ...editableFields(input),
+    platform: input.platform,
     id: nextAccountId(accounts, input.platform)
   });
   accounts.push(account);
@@ -110,7 +128,7 @@ function updateAccount(id, patch) {
 
   accounts[index] = createAccount({
     ...accounts[index],
-    ...patch,
+    ...editableFields(patch),
     id: accounts[index].id,
     platform: accounts[index].platform,
     partition: accounts[index].partition
@@ -147,8 +165,7 @@ function reorderAccounts(ids) {
 // и добавив новый WhatsApp, пользователь получал wa_1 обратно — вместе с чужой
 // сессией входа, которая осталась на диске.
 function nextAccountId(accounts, platform) {
-  const prefix =
-    platform === "whatsapp" ? "wa" : platform === "telegram" ? "tg" : "instagram";
+  const prefix = platformInfo(platform).idPrefix;
 
   for (let attempt = 0; attempt < 50; attempt += 1) {
     const id = `${prefix}_${crypto.randomBytes(3).toString("hex")}`;
@@ -180,6 +197,7 @@ function getAccountsPath() {
 module.exports = {
   addAccount,
   desktopChromeUserAgent,
+  editableFields,
   getAccountsPath,
   loadAccounts,
   removeAccount,

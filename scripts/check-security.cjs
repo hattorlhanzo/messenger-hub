@@ -127,6 +127,25 @@ check("верный PIN обнуляет счётчик ошибок", () => {
   assert.strictEqual(guard.check("0000", settings).retryAfterMs, 0, "снова четыре бесплатные попытки");
 });
 
+check("пауза после ошибок переживает перезапуск", () => {
+  let time = 1000;
+  let saved = {};
+  const first = createPinGuard({ now: () => time, onChange: (state) => (saved = state) });
+  for (let i = 0; i < 5; i += 1) first.check("0000", settings);
+  assert.strictEqual(saved.failedAttempts, 5);
+
+  // Новый запуск с тем, что записалось в настройки.
+  const second = createPinGuard({ now: () => time, state: saved });
+  assert.strictEqual(second.check("4321", settings).ok, false, "перезапуск не снимает паузу");
+  time += 30 * 1000;
+  assert.strictEqual(second.check("0000", settings).retryAfterMs, 60 * 1000, "счёт ошибок продолжается");
+});
+
+check("сохранённая пауза не длиннее 15 минут, даже если часы перевели", () => {
+  const guard = createPinGuard({ now: () => 0, state: { failedAttempts: 9, blockedUntil: 10 ** 12 } });
+  assert.ok(guard.check("4321", settings).retryAfterMs <= 15 * 60 * 1000);
+});
+
 check("сохранённые размеры применяются как есть", () => {
   const b = normalizeWindowBounds({ x: 100, y: 100, width: 1200, height: 800 }, findDisplay);
   assert.deepStrictEqual(b, { x: 100, y: 100, width: 1200, height: 800 });

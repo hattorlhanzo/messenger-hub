@@ -81,9 +81,25 @@ function pinRetryDelayMs(failedAttempts) {
 
 // Счётчик неудач общий для экрана блокировки и для смены или отключения PIN
 // в настройках: иначе подбирать можно было бы через второй вход.
-function createPinGuard({ now = Date.now } = {}) {
-  let failedAttempts = 0;
-  let blockedUntil = 0;
+//
+// Счётчик и пауза переживают перезапуск: state приходит из настроек, а onChange
+// записывает их обратно. Раньше они жили только в памяти, и выход из
+// приложения через значок в трее давал четыре новые бесплатные попытки.
+function createPinGuard({ now = Date.now, state = {}, onChange = () => {} } = {}) {
+  let failedAttempts = Math.max(0, Math.floor(Number(state.failedAttempts) || 0));
+  // Пауза не может быть длиннее самой длинной: если часы перевели назад,
+  // сохранённый срок иначе растянулся бы на сколько угодно.
+  let blockedUntil = Math.min(Number(state.blockedUntil) || 0, now() + maxPinPauseMs);
+
+  function save(nextFailed, nextBlocked) {
+    if (nextFailed === failedAttempts && nextBlocked === blockedUntil) {
+      return;
+    }
+
+    failedAttempts = nextFailed;
+    blockedUntil = nextBlocked;
+    onChange({ failedAttempts, blockedUntil });
+  }
 
   return {
     check(pin, settings) {
@@ -93,14 +109,12 @@ function createPinGuard({ now = Date.now } = {}) {
       }
 
       if (verifyPin(pin, settings)) {
-        failedAttempts = 0;
-        blockedUntil = 0;
+        save(0, 0);
         return { ok: true, retryAfterMs: 0 };
       }
 
-      failedAttempts += 1;
-      const delay = pinRetryDelayMs(failedAttempts);
-      blockedUntil = delay ? now() + delay : 0;
+      const delay = pinRetryDelayMs(failedAttempts + 1);
+      save(failedAttempts + 1, delay ? now() + delay : 0);
       return { ok: false, retryAfterMs: delay };
     }
   };

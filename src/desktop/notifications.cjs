@@ -1,4 +1,5 @@
 const { Notification } = require("electron");
+const { platformInfo } = require("./platforms.cjs");
 
 // Системные уведомления о новых сообщениях.
 //
@@ -33,9 +34,7 @@ function initNotifications({ onOpenAccount } = {}) {
 }
 
 function platformName(platform) {
-  if (platform === "whatsapp") return "WhatsApp";
-  if (platform === "telegram") return "Telegram";
-  return "Instagram";
+  return platformInfo(platform).name;
 }
 
 // Текст из мессенджера приходит с переносами и может быть сколь угодно длинным.

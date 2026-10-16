@@ -11,6 +11,8 @@
 //
 // Список доменов намеренно широкий: вход в Instagram и WhatsApp ходит через
 // сайты Meta, и лучше пропустить лишний домен, чем сломать вход в аккаунт.
+// VK Мессенджер входит через VK ID на id.vk.ru и возвращается на web.vk.me;
+// MAX весь вход проводит на своей странице, а данные берёт с oneme.ru.
 
 const externalSchemes = new Set(["http:", "https:", "mailto:", "tel:"]);
 
@@ -28,7 +30,12 @@ const allowedDomains = [
   "messenger.com",
   "meta.com",
   "threads.com",
-  "threads.net"
+  "threads.net",
+  "vk.me",
+  "vk.com",
+  "vk.ru",
+  "max.ru",
+  "oneme.ru"
 ];
 
 function parseUrl(url) {

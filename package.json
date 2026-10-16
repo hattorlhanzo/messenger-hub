@@ -10,14 +10,14 @@
   "scripts": {
     "start": "electron .",
     "start:devtools": "MESSENGER_HUB_DEVTOOLS=1 electron .",
-    "test": "node scripts/check-json-store.cjs && node scripts/check-shortcuts.cjs && node scripts/check-navigation.cjs && node scripts/check-logger.cjs && node scripts/check-unread.cjs && node scripts/check-security.cjs && node scripts/check-notifications.cjs && node scripts/check-app-menu.cjs && node scripts/check-context-menu.cjs && node scripts/check-zoom.cjs && node scripts/check-taskbar-badge.cjs && node scripts/check-layout.cjs",
+    "test": "node scripts/check-json-store.cjs && node scripts/check-shortcuts.cjs && node scripts/check-navigation.cjs && node scripts/check-logger.cjs && node scripts/check-unread.cjs && node scripts/check-security.cjs && node scripts/check-notifications.cjs && node scripts/check-app-menu.cjs && node scripts/check-context-menu.cjs && node scripts/check-zoom.cjs && node scripts/check-taskbar-badge.cjs && node scripts/check-layout.cjs && node scripts/check-accounts.cjs && node scripts/check-crashes.cjs && node scripts/check-release-notice.cjs",
     "icons:tray": "node scripts/make-tray-icons.cjs",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win",
     "dist": "electron-builder --mac --win"
   },
   "devDependencies": {
-    "electron": "^43.7.11",
+    "electron": "^43.8.0",
     "electron-builder": "^26.0.12"
   },
   "dependencies": {
